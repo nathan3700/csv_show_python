@@ -2,7 +2,7 @@ import unittest
 from csv_show import *
 
 
-class MyTestCase(unittest.TestCase):
+class ShowCSVTests(unittest.TestCase):
 
     def setUp(self):
         self.show = CsvShow()
@@ -47,13 +47,51 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(longest_widths, [11, 13])
 
     def test_show_variable_data_len1(self):
-        db = [["itemA1", "itemB1"], ["long_itemA2", "long_itemB2"]]
+        db = [["itemA1", "itemB1"], ["long_itemA2", "longer_itemB2"]]
         self.show.has_header = False
         self.show.set_db(db)
         result = self.show.format_output()
         self.assertEqual(result,
-                         "|itemA1     |itemB1     |\n" +
-                         "|long_itemA2|long_itemB2|"
+                         "|itemA1     |itemB1       |\n" +
+                         "|long_itemA2|longer_itemB2|"
+                         )
+
+    def test_column_names_with_header(self):
+        db = [["Name", "Age", "Address"], ["Marty", "25", "4000 Spruce Lane"]]
+        self.show.set_db(db)
+        self.assertEqual(self.show.column_names, ["Name", "Age", "Address"])
+
+    def test_column_names_with_surprise_new_col(self):
+        db = [["Name", "Age", "Address"], ["Marty", "25", "4000 Spruce Lane", "Surprise new information"]]
+        self.show.set_db(db)
+        self.assertEqual(self.show.column_names, ["Name", "Age", "Address", "Col3"])
+
+    def test_column_names_without_header(self):
+        db = [["Marty", "25", "4000 Spruce Lane"]]
+        self.show.has_header = False
+        self.show.set_db(db)
+        self.assertEqual(self.show.column_names, ["Col0", "Col1", "Col2"])
+        # Now check surprise more info
+        db.append(["Jack", "31", "65 Oak Court", "Surprise new Column3"])
+        self.show.set_db(db)
+        self.assertEqual(self.show.column_names, ["Col0", "Col1", "Col2", "Col3"])
+
+    def test_find_longest_with_width_capped(self):
+        db = [["Name", "Quantity"], ["Fork", "2"], ["Spoon", "3000"],
+              ["LongThing123", "1234567890123456789"]]
+        self.show.set_db(db)
+        self.show.max_width_by_name["Name"] = 9
+        self.show.max_width_by_name["Quantity"] = 8
+        longest_widths = self.show.find_longest_column_widths()
+        self.assertEqual(longest_widths, [9, 8])
+        # Now test the final output string
+        result = self.show.format_output()
+        self.assertEqual(result,
+                         "|Name     |Quantity|\n" +
+                         "|---------|--------|\n" +
+                         "|Fork     |2       |\n" +
+                         "|Spoon    |3000    |\n" +
+                         "|LongThing|12345678|"
                          )
 
 
