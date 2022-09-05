@@ -91,8 +91,19 @@ class ShowCSVTests(unittest.TestCase):
                          "|---------|--------|\n" +
                          "|Fork     |2       |\n" +
                          "|Spoon    |3000    |\n" +
-                         "|LongThing|12345678|"
+                         "|LongThin*|1234567*|"
                          )
+
+    def test_width_histogram(self):
+        db = [["Name", "Quantity"], ["Forks", "2000"], ["Spoon", "3000"],
+              ["LongThing123", "1234567890123456789", "Surprise Data"]]
+        self.show.set_db(db)
+        expected_histograms = {"Name": {4: 1, 5: 2, 12: 1},
+                               "Quantity": {8: 1, 4: 2, 19: 1},
+                               "Col2": {13: 1, 4: 1}  # Implicit "Col2" is counted as well
+                               }
+        self.show.find_longest_column_widths()
+        self.assertEqual(self.show.width_histograms, expected_histograms)
 
 
 if __name__ == '__main__':

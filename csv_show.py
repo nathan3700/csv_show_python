@@ -1,6 +1,7 @@
 import collections
 class CsvShow:
     def __init__(self):
+        self.width_histograms = {}  # Dict of Dict  h[col_name][width]=count
         self.max_width_by_name = collections.OrderedDict()
         self.db = []
         self.has_header = True
@@ -49,8 +50,13 @@ class CsvShow:
             if col_num == 0:
                 row_str += "|"
             width = longest[col_num]
+            data = row[col_num]
+            if len(data) > width:  # Remove a character to make room for truncation indicator
+                width -= 1
             fmt = "{item:" + f"{width}" + "." + f"{width}" "}"
-            row_str += fmt.format(item=row[col_num])
+            row_str += fmt.format(item=data)
+            if len(data) > width:  # Indicate truncation to the user with a "*"
+                row_str += "*"
             row_str += "|"
         return row_str
 
@@ -58,12 +64,23 @@ class CsvShow:
         longest = []
         for row in self.db:
             for col_num in range(len(row)):
+                col_name = self.column_names[col_num]
+                col_width = len(row[col_num])
+                self.update_width_histograms(col_name, col_width)
+
                 if len(longest) <= col_num:
                     longest.append(0)
-                if len(row[col_num]) > longest[col_num]:
-                    longest[col_num] = len(row[col_num])
+                if col_width > longest[col_num]:
+                    longest[col_num] = col_width
         self.apply_width_caps(longest)
         return longest
+
+    def update_width_histograms(self, col_name, col_width):
+        if col_name not in self.width_histograms:
+            self.width_histograms[col_name] = {}
+        if col_width not in self.width_histograms[col_name]:
+            self.width_histograms[col_name][col_width] = 0
+        self.width_histograms[col_name][col_width] += 1
 
     def apply_width_caps(self, longest):
         for col_name in self.max_width_by_name.keys():
