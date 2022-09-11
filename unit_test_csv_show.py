@@ -2,10 +2,9 @@ import unittest
 from csv_show import *
 
 
-class ShowCSVTests(unittest.TestCase):
-
+class ShowCSVPrintFormatterTests(unittest.TestCase):
     def setUp(self):
-        self.show = CsvShow()
+        self.show = CsvPrintFormatter()
 
     def test_show_null_csv(self):
         db = []
@@ -104,6 +103,85 @@ class ShowCSVTests(unittest.TestCase):
                                }
         self.show.find_longest_column_widths()
         self.assertEqual(self.show.width_histograms, expected_histograms)
+
+
+class ShowCSVDBTests(unittest.TestCase):
+    def setUp(self):
+        self.db = CSVShowDB()
+
+    def setUPDefaultData(self):
+        self.db.set_column_names(["Name", "Age", "Height"])
+        self.db.add_rows([["Tom", "25", "5 feet"],
+                          ["Ella", "30", "4.5 feet"],
+                          ["Richard", "50", "6 feet"]
+                          ])
+
+    def test_can_add_names_and_data(self):
+        self.db.set_column_names(["Name", "Age"])
+        self.assertEqual(self.db.column_names,["Name", "Age"])
+        self.db.add_row(["Jake", "40"])
+        self.assertEqual(self.db.rows[0], ["Jake", "40"])
+
+    def test_auto_create_names_if_non_given(self):
+        self.db.add_row(["Jake", "40"])
+        self.assertEqual(self.db.column_names, ["Col0", "Col1"])
+
+    def test_update_names_after_auto_names(self):
+        self.db.add_row(["Jake", "40", "6 feet"])
+        self.assertEqual(self.db.column_names, ["Col0", "Col1", "Col2"])
+        # Now update the first two names to better ones
+        self.db.set_column_names(["Name", "Age"])
+        self.assertEqual(self.db.column_names, ["Name", "Age", "Col2"])
+        self.db.set_column_name(2, "Height")
+        self.assertEqual(self.db.column_names, ["Name", "Age", "Height"])
+        self.db.set_column_name(5, "Width")
+        self.assertEqual(self.db.column_names, ["Name", "Age", "Height", "Col3", "Col4", "Width"])
+
+    def test_get_col_number_by_name(self):
+        self.setUPDefaultData()
+        col_num = self.db.get_col_number("Height")
+        self.assertEqual(col_num, 2)
+    def test_get_length_and_width(self):
+        self.setUPDefaultData()
+        self.assertEqual(self.db.get_length(), 3)
+        self.assertEqual(self.db.get_width(), 3)
+        self.db.add_rows([["thing", "item", "something"]] * 50)
+        self.db.set_column_name(52, "Color")
+        self.assertEqual(self.db.get_length(), 53)
+        self.assertEqual(self.db.get_width(), 53)
+
+    def test_look_up_row(self):
+        self.setUPDefaultData()
+        row = self.db.lookup_row({"Name": "Ella"})
+        self.assertEqual(row, ["Ella", "30", "4.5 feet"])
+
+    def test_look_up_item(self):
+        self.setUPDefaultData()
+        item = self.db.lookup_item("Age", {"Name": "Ella"})
+        self.assertEqual(item, "30")
+
+    def test_look_up_item_multi_criteria(self):
+        self.setUPDefaultData()
+        self.db.add_row(["Ella", "25", "72 inches"])  # Add a row that can false match if only one criterion used
+        item = self.db.lookup_item("Height", {"Name": "Ella", "Age": "25"})
+        self.assertEqual(item, "72 inches")
+
+    # More features to add
+    # look up with regex
+    # filter columns
+    # filter rows
+    # insert row at position x
+    # insert column at position x
+    # update update items that match criteria
+
+class ShowCSVTests(unittest.TestCase):
+    def setUp(self):
+        self.ui = CsvShow()
+
+    def test_can_read_csv_from_disk(self):
+        self.ui.read_db("data/cars.csv")
+        self.assertIn("Make", self.ui.column_names)
+        self.assertEqual(self.ui.db[0][0], "Ford")
 
 
 if __name__ == '__main__':

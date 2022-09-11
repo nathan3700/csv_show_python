@@ -1,5 +1,8 @@
 import collections
-class CsvShow:
+import csv
+from csv_show_db import *
+
+class CsvPrintFormatter:
     def __init__(self):
         self.width_histograms = {}  # Dict of Dict  h[col_name][width]=count
         self.max_width_by_name = collections.OrderedDict()
@@ -90,6 +93,23 @@ class CsvShow:
 
     def name2column_num(self, col_name):
         return self.column_numbers_by_name[col_name]
+
+class CsvShow:
+
+    def __init__(self):
+        self.db = []
+        self.has_header = True
+        self.column_names = []
+    def read_db(self, file):
+        file_handle = open(file)
+        reader = csv.reader(file_handle)
+        self.column_names = reader.__next__()
+        for row in reader:
+            self.db.append(row)
+        file_handle.close()
+
+
+
 
 
 if __name__ == "__main__":
