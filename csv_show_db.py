@@ -1,7 +1,25 @@
 class CSVShowDB:
-    def __init__(self):
+    def __init__(self, new_db=None, has_header=True):
+        self.__curr_row = 0
         self.column_names = []
         self.rows = []
+        if new_db is not None:
+            if len(new_db) > 0 and has_header:
+                self.set_column_names(new_db[0])
+                self.add_rows(new_db[1:])
+            else:
+                self.add_rows(new_db)
+
+    def __iter__(self):
+        self.__curr_row = 0
+        return self
+
+    def __next__(self):
+        if self.__curr_row >= len(self.rows):
+            raise StopIteration
+        row = self.rows[self.__curr_row]
+        self.__curr_row += 1
+        return row
 
     def set_column_names(self, names):
         if len(names) >= len(self.column_names):
@@ -16,7 +34,7 @@ class CSVShowDB:
 
     def add_rows(self, rows):
         for row in rows:
-            self.rows.append(row)
+            self.add_row(row)
 
     def add_row(self, row):
         self.rows.append(row)
