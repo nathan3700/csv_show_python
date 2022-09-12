@@ -1,14 +1,15 @@
+from csv_show_shared import *
+import re
+
 class CSVShowDB:
-    def __init__(self, new_db=None, has_header=True):
+    def __init__(self, new_db=None, column_names=[]):
         self.__curr_row = 0
         self.column_names = []
+        self.column_number_by_name = {}
         self.rows = []
+        self.set_column_names(column_names)
         if new_db is not None:
-            if len(new_db) > 0 and has_header:
-                self.set_column_names(new_db[0])
-                self.add_rows(new_db[1:])
-            else:
-                self.add_rows(new_db)
+            self.add_rows(new_db)
 
     def __iter__(self):
         self.__curr_row = 0
@@ -22,15 +23,14 @@ class CSVShowDB:
         return row
 
     def set_column_names(self, names):
-        if len(names) >= len(self.column_names):
-            self.column_names = names
-        else:
-            self.column_names[0:len(names)] = names
+        for i in range(len(names)):
+            self.set_column_name(i, names[i])
 
     def set_column_name(self, position, name):
-        if position >= len(self.column_names):
-            self.generate_names_for_unnamed_columns([None] * (position + 1))
+        if position + 1 > len(self.column_names):
+            self.add_unnamed_column_names(position + 1)
         self.column_names[position] = name
+        self.column_number_by_name[name] = position
 
     def add_rows(self, rows):
         for row in rows:
@@ -38,11 +38,30 @@ class CSVShowDB:
 
     def add_row(self, row):
         self.rows.append(row)
-        self.generate_names_for_unnamed_columns(row)
+        if len(row) > len(self.column_names):
+            self.add_unnamed_column_names(len(row))
 
-    def generate_names_for_unnamed_columns(self, row):
-        while len(self.column_names) < len(row):
-            self.column_names.append(f"Col{len(self.column_names)}")
+    def add_unnamed_column_names(self, new_width):
+        while len(self.column_names) < new_width:
+            position = len(self.column_names)
+            self.column_names.append(None)  # Placeholder to resize list.
+            self.set_column_name(position, f"Col{position}")
+
+    def insert_column(self, new_column_name, position):
+        self.column_names.insert(position, None)  # Just open a gap, then set below
+        self.set_column_name(position, new_column_name)
+        for row in self.rows:
+            row.insert(position, "")
+
+    def insert_row(self, position, row):
+        self.rows.insert(position, row)
+
+    def set_data_at_col_row(self, col, row, value):
+        self.rows[row][col] = value
+
+    def set_data(self, name, row, value):
+        col_num = self.get_col_number(name)
+        self.set_data_at_col_row(col_num, row, value)
 
     def get_length(self):
         return len(self.rows)
@@ -50,36 +69,58 @@ class CSVShowDB:
     def get_width(self):
         return len(self.column_names)
 
-    def lookup_item(self, item_name, criteria):
+    def lookup_item(self, item_name, criteria, fail_if_not_found=False):
         row = self.lookup_row(criteria)
         col_num = self.get_col_number(item_name)
-        return row[col_num]
+        if row is None:
+            if fail_if_not_found:
+                raise CSVShowError("Look up criteria did not yield a match.")
+            return ""
+        else:
+            return row[col_num]
 
     def lookup_row(self, criteria):
+        rows = self.select_rows(criteria)
+        if len(rows) == 0:
+            return None
+        else:
+            return rows[0]
+
+    def select_rows(self, criteria):
         # Unpack the criteria from a dictionary to these lists
-        col_names = []
-        col_numbers = []
+        criteria_column_names = []
+        criteria_col_numbers = []
+        results_rows = []
 
         for col_name in criteria.keys():
-            col_names.append(col_name)
-            col_numbers.append(self.get_col_number(col_name))
+            criteria_column_names.append(col_name)
+            criteria_col_numbers.append(self.get_col_number(col_name))
 
         # Find the row where all match values are found
         for row_data in self.rows:
             matches_found = 0
-            for x in range(len(col_names)):
-                col_name = col_names[x]
-                if row_data[x] == criteria[col_name]:
+            for x in range(len(criteria_column_names)):
+                col_name = criteria_column_names[x]
+                regex = self.get_regex(criteria[col_name])
+                if regex and re.match(regex, row_data[x]):
                     matches_found += 1
-            if matches_found == len(col_names):
-                return row_data
+                elif row_data[criteria_col_numbers[x]] == criteria[col_name]:
+                    matches_found += 1
+            if matches_found == len(criteria_column_names):
+                results_rows.append(row_data)
+        return results_rows
+
+    @staticmethod
+    def get_regex(string_input):
+        for regex_delimiter in ["/", "|"]:
+            if string_input[0] == regex_delimiter and string_input[len(string_input)-1] == regex_delimiter:
+                return string_input[1:len(string_input)-1]
         return None
 
     def get_col_number(self, name):
-        for i in range(len(self.column_names)):
-            if self.column_names[i] == name:
-                return i
-        return None
+        if name not in self.column_names:
+            raise CSVShowError(f"Column name not found: {name}")
+        return self.column_number_by_name[name]
 
 
 
