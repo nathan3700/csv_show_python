@@ -56,10 +56,6 @@ class ShowCSVDBTests(unittest.TestCase):
         self.db.insert_column("ItemB", 1)
         self.assertEqual(["ItemA", "ItemB", "ItemC"], self.db.column_names)
         self.assertEqual([["AA0", "", "CC0"], ["AA1", "", "CC1"]], self.db.rows)
-        self.db.set_data_at_col_row(1, 0, "BB0")  # By col and row number
-        self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "", "CC1"]], self.db.rows)
-        self.db.set_data("ItemB", 1, "BB1")  # By row and name
-        self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "BB1", "CC1"]], self.db.rows)
 
     def test_insert_new_row(self):
         self.db.set_column_names(["ItemA", "ItemB"])
@@ -116,10 +112,24 @@ class ShowCSVDBTests(unittest.TestCase):
         expected = [["Richard", "50", "6 feet"],
                     ["Katy", "50", "5 feet"]]
         self.assertEqual(expected, rows)
+        rows = self.db.select_rows({"Age": "50", "Name": "Katy"})
+        expected = [["Katy", "50", "5 feet"]]
+        self.assertEqual(expected, rows)
 
-    # More features to add
-    # filter columns
-    # update items that match criteria
+    def test_update_data(self):
+        self.db.set_column_names(["ItemA", "ItemB", "ItemC"])
+        self.db.add_rows([["AA0", "", "CC0"], ["AA1", "", "CC1"]])
+        self.db.update_data_at_col_row(1, 0, "BB0")  # By col and row number
+        self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "", "CC1"]], self.db.rows)
+        self.db.update_data_at_row("ItemB", 1, "BB1")  # By row and name
+        self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "BB1", "CC1"]], self.db.rows)
+        criteria = {"ItemB": "/BB/"}
+        self.db.update_data("ItemB", "UpdatedBB", criteria)  # Picks rows using criteria dictionary (see lookup)
+        self.assertEqual([["AA0", "UpdatedBB", "CC0"], ["AA1", "UpdatedBB", "CC1"]], self.db.rows)
+        criteria = {"ItemB": "/.*BB/", "ItemA": "AA1"}  # More specific to hit one row only
+        self.db.update_data("ItemB", "Deleted", criteria)
+        self.assertEqual([["AA0", "UpdatedBB", "CC0"], ["AA1", "Deleted", "CC1"]], self.db.rows)
+
 
 if __name__ == '__main__':
     unittest.main()

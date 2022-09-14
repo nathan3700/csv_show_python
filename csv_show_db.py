@@ -56,12 +56,18 @@ class CSVShowDB:
     def insert_row(self, position, row):
         self.rows.insert(position, row)
 
-    def set_data_at_col_row(self, col, row, value):
+    def update_data(self, name, value, criteria):
+        col_num = self.get_col_number(name)
+        rows, row_numbers = self.select_rows_and_row_numbers(criteria)
+        for row_number in row_numbers:
+            self.update_data_at_col_row(col_num, row_number, value)
+
+    def update_data_at_col_row(self, col, row, value):
         self.rows[row][col] = value
 
-    def set_data(self, name, row, value):
+    def update_data_at_row(self, name, row, value):
         col_num = self.get_col_number(name)
-        self.set_data_at_col_row(col_num, row, value)
+        self.update_data_at_col_row(col_num, row, value)
 
     def get_length(self):
         return len(self.rows)
@@ -87,28 +93,36 @@ class CSVShowDB:
             return rows[0]
 
     def select_rows(self, criteria):
+        rows, row_numbers = self.select_rows_and_row_numbers(criteria)
+        return rows
+
+    def select_rows_and_row_numbers(self, criteria):
         # Unpack the criteria from a dictionary to these lists
         criteria_column_names = []
         criteria_col_numbers = []
         results_rows = []
+        results_row_numbers = []
 
         for col_name in criteria.keys():
             criteria_column_names.append(col_name)
             criteria_col_numbers.append(self.get_col_number(col_name))
 
         # Find the row where all match values are found
+        row_num = 0
         for row_data in self.rows:
             matches_found = 0
             for x in range(len(criteria_column_names)):
                 col_name = criteria_column_names[x]
                 regex = self.get_regex(criteria[col_name])
-                if regex and re.match(regex, row_data[x]):
+                if regex and re.match(regex, row_data[criteria_col_numbers[x]]):
                     matches_found += 1
                 elif row_data[criteria_col_numbers[x]] == criteria[col_name]:
                     matches_found += 1
             if matches_found == len(criteria_column_names):
                 results_rows.append(row_data)
-        return results_rows
+                results_row_numbers.append(row_num)
+            row_num += 1
+        return results_rows, results_row_numbers
 
     @staticmethod
     def get_regex(string_input):
@@ -121,8 +135,3 @@ class CSVShowDB:
         if name not in self.column_names:
             raise CSVShowError(f"Column name not found: {name}")
         return self.column_number_by_name[name]
-
-
-
-
-
