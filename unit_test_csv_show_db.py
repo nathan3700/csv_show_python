@@ -151,5 +151,18 @@ class ShowCSVDBTests(unittest.TestCase):
         record = self.db.row_to_record(self.db.rows[0])
         self.assertEqual({"Name": "Tom", "Age": "25", "Height": "5 feet"}, record)
 
+    def test_iterable(self):
+        self.setUPDefaultData()
+        rows = [row for row in self.db]
+        self.assertEqual(4, len(rows))
+        self.assertEqual(type([]), type(rows[0]))
+        self.db.rows_as_records = True
+        records = [row for row in self.db]
+        self.assertEqual(4, len(records))
+        self.assertEqual(type({}), type(records[0]))
+        print(records)
+
+
+
 if __name__ == '__main__':
     unittest.main()
