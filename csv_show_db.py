@@ -1,9 +1,11 @@
 from csv_show_shared import *
 import re
 
+
 class CSVShowDB:
     def __init__(self, new_db=None, column_names=[]):
         self.__curr_row = 0
+        self.rows_as_records = False
         self.column_names = []
         self.column_number_by_name = {}
         self.rows = []
@@ -18,9 +20,15 @@ class CSVShowDB:
     def __next__(self):
         if self.__curr_row >= len(self.rows):
             raise StopIteration
-        row = self.rows[self.__curr_row]
+        row = self.get_row(self.__curr_row)
         self.__curr_row += 1
         return row
+
+    def get_row(self, row_num):
+        if self.rows_as_records:
+            return self.row_to_record(self.rows[row_num])
+        else:
+            return self.rows[row_num]
 
     def set_column_names(self, names):
         for i in range(len(names)):
@@ -34,7 +42,7 @@ class CSVShowDB:
 
     def add_rows(self, rows):
         for row in rows:
-            self.add_row(row)
+            self.add_row(row.copy())
 
     def add_row(self, row):
         self.rows.append(row)
@@ -86,15 +94,16 @@ class CSVShowDB:
             return row[col_num]
 
     def lookup_row(self, criteria):
-        rows = self.select_rows(criteria)
-        if len(rows) == 0:
+        rows, row_numbers = self.select_rows_and_row_numbers(criteria)
+        if len(row_numbers) == 0:
             return None
         else:
-            return rows[0]
+            return self.get_row(row_numbers[0])
 
-    def select_rows(self, criteria):
+    def select(self, criteria):
         rows, row_numbers = self.select_rows_and_row_numbers(criteria)
-        return rows
+        new_db = CSVShowDB(rows, self.column_names)
+        return new_db
 
     def select_rows_and_row_numbers(self, criteria):
         # Unpack the criteria from a dictionary to these lists
@@ -135,3 +144,6 @@ class CSVShowDB:
         if name not in self.column_names:
             raise CSVShowError(f"Column name not found: {name}")
         return self.column_number_by_name[name]
+
+    def row_to_record(self, row):
+        return {key: val for key, val in zip(self.column_names, row)}

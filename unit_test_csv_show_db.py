@@ -50,6 +50,17 @@ class ShowCSVDBTests(unittest.TestCase):
             self.assertIn("Column name not found", e.args[0])
         self.assertTrue(caught_exception)
 
+    def test_set_constructor_does_deep_copy(self):
+        rows = [["carrots", "25"], ["plums", "10"]]
+        names = ["type", "quantity"]
+        rows_copy = [item.copy() for item in rows.copy()]
+        names_copy = names.copy()
+        self.db = CSVShowDB(rows, names)
+        rows[1][1] = "corrupt"
+        names[1] = "corrupt_name"
+        self.assertEqual(names_copy, self.db.column_names)
+        self.assertEqual(rows_copy, self.db.rows)
+
     def test_insert_new_column(self):
         self.db.set_column_names(["ItemA", "ItemC"])
         self.db.add_rows([["AA0", "CC0"], ["AA1", "CC1"]])
@@ -77,6 +88,9 @@ class ShowCSVDBTests(unittest.TestCase):
         self.setUPDefaultData()
         row = self.db.lookup_row({"Name": "Ella"})
         self.assertEqual(row, ["Ella", "30", "4.5 feet"])
+        self.db.rows_as_records = True
+        record = self.db.lookup_row({"Name": "Ella"})
+        self.assertEqual(record, {"Name": "Ella", "Age": "30", "Height": "4.5 feet"})
 
     def test_look_up_item(self):
         self.setUPDefaultData()
@@ -106,15 +120,17 @@ class ShowCSVDBTests(unittest.TestCase):
         item = self.db.lookup_item("Age", {"Name": "|.*a|", "Age": "|5|"}, fail_if_not_found=True)
         self.assertEqual("50", item)
 
-    def test_select_rows(self):
+    def test_select(self):
         self.setUPDefaultData()
-        rows = self.db.select_rows({"Age": "50"})
-        expected = [["Richard", "50", "6 feet"],
-                    ["Katy", "50", "5 feet"]]
-        self.assertEqual(expected, rows)
-        rows = self.db.select_rows({"Age": "50", "Name": "Katy"})
-        expected = [["Katy", "50", "5 feet"]]
-        self.assertEqual(expected, rows)
+        result_db = self.db.select({"Age": "50"})
+        expected = CSVShowDB(
+            [["Richard", "50", "6 feet"],
+             ["Katy", "50", "5 feet"]], self.db.column_names)
+        self.assertEqual(type(result_db), type(self.db))
+        self.assertEqual(expected.rows, result_db.rows)
+        result_db = self.db.select({"Age": "50", "Name": "Katy"})
+        expected = CSVShowDB([["Katy", "50", "5 feet"]], self.db.column_names)
+        self.assertEqual(expected.rows, result_db.rows)
 
     def test_update_data(self):
         self.db.set_column_names(["ItemA", "ItemB", "ItemC"])
@@ -130,6 +146,10 @@ class ShowCSVDBTests(unittest.TestCase):
         self.db.update_data("ItemB", "Deleted", criteria)
         self.assertEqual([["AA0", "UpdatedBB", "CC0"], ["AA1", "Deleted", "CC1"]], self.db.rows)
 
+    def test_row_to_dictionary(self):
+        self.setUPDefaultData()
+        record = self.db.row_to_record(self.db.rows[0])
+        self.assertEqual({"Name": "Tom", "Age": "25", "Height": "5 feet"}, record)
 
 if __name__ == '__main__':
     unittest.main()
