@@ -122,5 +122,6 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
         self.assertEqual(expected_histograms, self.show.width_histograms)
 
 
+
 if __name__ == '__main__':
     unittest.main()

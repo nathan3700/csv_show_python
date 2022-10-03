@@ -160,8 +160,52 @@ class ShowCSVDBTests(unittest.TestCase):
         records = [row for row in self.db]
         self.assertEqual(4, len(records))
         self.assertEqual(type({}), type(records[0]))
-        print(records)
 
+    def test_sort1(self):
+        self.setUPDefaultData()
+        expected = [["Ella", "30", "4.5 feet"],
+                    ["Tom", "25", "5 feet"],
+                    ["Katy", "50", "5 feet"],
+                    ["Richard", "50", "6 feet"]
+                    ]
+        self.db.sort(["Height"])
+        self.assertEqual(expected, self.db.rows)
+        expected = [["Tom", "25", "5 feet"],
+                    ["Ella", "30", "4.5 feet"],
+                    ["Katy", "50", "5 feet"],
+                    ["Richard", "50", "6 feet"]
+                    ]
+        self.db.sort(["Age"])
+        self.assertEqual(expected, self.db.rows)
+
+    def test_sort2(self):
+        self.db.set_column_names(["Name", "Age", "Height"])
+        self.db.add_rows([["Tom", "25", "5.0 feet"],
+                          ["Tom", "30", "4.5 feet"],
+                          ["Katy", "45", "50 feet"],
+                          ["Katy", "50", "40 feet"]
+                          ])
+        self.db.sort(["Name"])
+        expected = [["Katy", "45", "50 feet"],
+                    ["Katy", "50", "40 feet"],
+                    ["Tom", "25", "5.0 feet"],
+                    ["Tom", "30", "4.5 feet"]
+                    ]
+        self.assertEqual(expected, self.db.rows)
+        self.db.sort(["Name", "Height"])
+        expected = [["Katy", "50", "40 feet"],
+                    ["Katy", "45", "50 feet"],
+                    ["Tom", "30", "4.5 feet"],
+                    ["Tom", "25", "5.0 feet"]
+                    ]
+        self.assertEqual(expected, self.db.rows)
+        self.db.sort(["Name", "Height"], reverse=True)
+        expected = [["Tom", "25", "5.0 feet"],
+                    ["Tom", "30", "4.5 feet"],
+                    ["Katy", "45", "50 feet"],
+                    ["Katy", "50", "40 feet"]
+                    ]
+        self.assertEqual(expected, self.db.rows)
 
 
 if __name__ == '__main__':

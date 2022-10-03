@@ -147,3 +147,11 @@ class CSVShowDB:
 
     def row_to_record(self, row):
         return {key: val for key, val in zip(self.column_names, row)}
+
+    def sort(self, sort_col_names, reverse=False):
+        sort_col_nums = [self.get_col_number(name) for name in sort_col_names]
+
+        def key_func(row):
+            return RowComparable(row, sort_col_nums)
+        self.rows = sorted(self.rows, reverse=reverse, key=key_func)
+
