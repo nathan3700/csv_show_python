@@ -16,7 +16,7 @@ class ShowCSVDBTests(unittest.TestCase):
 
     def test_can_add_names_and_data(self):
         self.db.set_column_names(["Name", "Age"])
-        self.assertEqual(self.db.column_names,["Name", "Age"])
+        self.assertEqual(self.db.column_names, ["Name", "Age"])
         self.db.add_row(["Jake", "40"])
         self.assertEqual(self.db.rows[0], ["Jake", "40"])
 
@@ -204,6 +204,14 @@ class ShowCSVDBTests(unittest.TestCase):
                     ["Tom", "30", "4.5 feet"],
                     ["Katy", "45", "50 feet"],
                     ["Katy", "50", "40 feet"]
+                    ]
+        self.assertEqual(expected, self.db.rows)
+        # Sort called with no field names:  sort on all of them
+        self.db.sort([])
+        expected = [["Katy", "45", "50 feet"],
+                    ["Katy", "50", "40 feet"],
+                    ["Tom", "25", "5.0 feet"],
+                    ["Tom", "30", "4.5 feet"],
                     ]
         self.assertEqual(expected, self.db.rows)
 

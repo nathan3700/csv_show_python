@@ -1,6 +1,5 @@
 import unittest
-from csv_show import *
-from unit_test_csv_show_db import *
+from csv_show_format import *
 
 
 class ShowCSVPrintFormatterTests(unittest.TestCase):

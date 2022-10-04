@@ -149,6 +149,8 @@ class CSVShowDB:
         return {key: val for key, val in zip(self.column_names, row)}
 
     def sort(self, sort_col_names, reverse=False):
+        if len(sort_col_names) == 0:
+            sort_col_names = self.column_names
         sort_col_nums = [self.get_col_number(name) for name in sort_col_names]
 
         def key_func(row):

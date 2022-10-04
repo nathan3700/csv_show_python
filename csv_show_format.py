@@ -1,5 +1,5 @@
 import collections
-from csv_show_db import *
+from csv_show_db import CSVShowDB
 
 
 class CsvPrintFormatter:
