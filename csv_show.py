@@ -1,3 +1,4 @@
+#!/bin/env python
 from csv_show_format import *
 import argparse
 import csv
