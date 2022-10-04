@@ -1,108 +1,41 @@
-import collections
+from csv_show_format import *
+import argparse
 import csv
-from csv_show_shared import *
-from csv_show_db import *
-
-
-class CsvPrintFormatter:
-    def __init__(self):
-        self.width_histograms = {}  # Dict of Dict  h[col_name][width]=count
-        self.max_width_by_name = collections.OrderedDict()
-        self.db = CSVShowDB()
-        self.has_header = True
-        self.column_numbers_by_name = collections.OrderedDict()
-
-    def set_db(self, db: CSVShowDB):
-        self.db = db
-
-    def format_output(self):
-        output = ''
-        longest = self.find_longest_column_widths()
-
-        if self.has_header:
-            output += self.format_row(self.db.column_names, longest)
-            output += "\n"
-            output += self.format_row(["-" * x for x in longest], longest)
-
-        row_num = 0
-        for row in self.db:
-            if row_num > 0 or self.has_header:
-                output += "\n"
-            output += self.format_row(row, longest)
-            row_num += 1
-
-        return output
-
-    @classmethod
-    def format_row(cls, row, longest):
-        row_str = ""
-        for col_num in range(len(row)):
-            if col_num == 0:
-                row_str += "|"
-            width = longest[col_num]
-            data = row[col_num]
-            if len(data) > width:  # Remove a character to make room for truncation indicator
-                width -= 1
-            fmt = "{item:" + f"{width}" + "." + f"{width}" "}"
-            row_str += fmt.format(item=data)
-            if len(data) > width:  # Indicate truncation to the user with a "*"
-                row_str += "*"
-            row_str += "|"
-        return row_str
-
-    def find_longest_column_widths(self):
-        longest = []
-        rows_including_header = [self.db.column_names] + self.db.rows
-        for row in rows_including_header:
-            for col_num in range(len(row)):
-                col_width = len(row[col_num])
-                self.update_longest_by_col_num(longest, col_width, col_num)
-                self.update_width_histograms(col_num, col_width)
-
-        self.apply_width_caps(longest)
-        return longest
-
-    @staticmethod
-    def update_longest_by_col_num(longest, col_width, col_num):
-        if len(longest) <= col_num:
-            longest.append(0)
-        if col_width > longest[col_num]:
-            longest[col_num] = col_width
-
-    def update_width_histograms(self, col_num, col_width):
-        col_name = self.db.column_names[col_num]
-        if col_name not in self.width_histograms:
-            self.width_histograms[col_name] = {}
-        if col_width not in self.width_histograms[col_name]:
-            self.width_histograms[col_name][col_width] = 0
-        self.width_histograms[col_name][col_width] += 1
-
-    def apply_width_caps(self, longest):
-        for col_name in self.max_width_by_name.keys():
-            col_num = self.db.get_col_number(col_name)
-            if longest[col_num] > self.max_width_by_name[col_name]:
-                longest[col_num] = self.max_width_by_name[col_name]
-
+import sys
 
 class CsvShow:
-
     def __init__(self):
-        self.db = []
+        self.db = CSVShowDB()
+        self.formatter = CsvPrintFormatter()
         self.has_header = True
-        self.column_names = []
+        self.parsed_args = argparse.Namespace()
+
+    def main(self, args):
+        self.parse_args(args)
+        self.read_db(self.parsed_args.csv_file)
+        self.formatter.set_db(self.db)
+        print(self.formatter.format_output())
+
     def read_db(self, file):
         file_handle = open(file)
         reader = csv.reader(file_handle)
-        self.column_names = reader.__next__()
-        for row in reader:
-            self.db.append(row)
+        if self.has_header:
+            column_names = reader.__next__()
+            self.db.set_column_names(column_names)
+        remaining_rows = [row for row in reader]
+        self.db.add_rows(remaining_rows)
         file_handle.close()
 
 
-
+    def parse_args(self, args):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--help2", action="store_true", default=False, help="Print this message")
+        parser.add_argument("csv_file", help="CSV file to be viewed")
+        self.parsed_args = parser.parse_args(args)
 
 
 if __name__ == "__main__":
-    print("Main")
+    show = CsvShow()
+    show.main(sys.argv[1:])
 
 
