@@ -5,7 +5,7 @@ from csv_show_shared import *
 import argparse
 import csv
 import sys
-
+import os
 
 class CsvShow:
     def __init__(self):
@@ -16,6 +16,7 @@ class CsvShow:
         self.parsed_args = argparse.Namespace()
 
     def main(self, args):
+        self.fix_screen_width()
         self.make_arg_parser()
         self.parse_args(args)
         self.read_db(self.parsed_args.csv_file)
@@ -51,6 +52,11 @@ class CsvShow:
         self.db.add_rows(remaining_rows)
         file_handle.close()
 
+    @staticmethod
+    def fix_screen_width():
+        if 'COLUMNS' not in os.environ:
+            os.environ['COLUMNS'] = "100"
+
     def parse_args(self, args):
         self.parsed_args = self.parser.parse_args(args)
 
@@ -60,9 +66,11 @@ class CsvShow:
         self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs,
                                  help="Sort on these fields: Field1,Field2,...")
         self.parser.add_argument("-select", action=ParseKVPairs, metavar="Key=Value",
-                                 help="Select rows with Key1=Value1,Key2=Value2,...")
+                                 help="Select rows with Key1=Value1,Key2=Value2,... "
+                                      "(/regex/ allowed for value)")
         self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("Fields", "Key=Value"),
-                                 help="Lookup fields (comma separated) with Key1=Value1,Key2=Value2,...")
+                                 help="Lookup fields (comma separated) with Key1=Value1,Key2=Value2,... "
+                                      "(/regex/ allowed for value)")
 
 
 class ParseCommaSeparatedArgs(argparse.Action):
