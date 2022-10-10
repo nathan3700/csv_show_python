@@ -24,6 +24,10 @@ class CSVShowDB:
         self.__curr_row += 1
         return row
 
+    def clear(self):
+        self.column_names.clear()
+        self.rows.clear()
+
     def get_row(self, row_num):
         if self.rows_as_records:
             return self.row_to_record(self.rows[row_num])

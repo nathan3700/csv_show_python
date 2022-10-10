@@ -4,11 +4,23 @@ import unittest
 import sys
 import os
 from csv_show import *
-
+from textwrap import dedent
 
 class ShowCSVTests(unittest.TestCase):
     def setUp(self):
+        self.dir = os.path.dirname(__file__)
         self.ui = CsvShow()
+        self.ui.make_arg_parser()
+
+    @staticmethod
+    def capture_block_output(block_function):
+        save_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
+        block_function()
+        lines = captured_output.getvalue().splitlines(keepends=False)
+        del captured_output
+        sys.stdout = save_stdout
+        return lines
 
     def test_can_read_csv_from_disk(self):
         self.ui.read_db("data/cars.csv")
@@ -20,13 +32,9 @@ class ShowCSVTests(unittest.TestCase):
         self.assertIn("csv_file", self.ui.parsed_args)
 
     def test_can_run_program(self):
-        dir = os.path.dirname(__file__)
-        save_stdout = sys.stdout
-        sys.stdout = captured_output = io.StringIO()
-        self.ui.main([dir + "/data/cars.csv"])
-        lines = captured_output.getvalue().splitlines(keepends=False)
-        del captured_output
-        sys.stdout = save_stdout
+        def block():
+            self.ui.main([self.dir + "/data/cars.csv"])
+        lines = self.capture_block_output(block)
         expected_output = [
             "|Make |Model     |Year|",
             '|-----|----------|----|',
@@ -39,6 +47,97 @@ class ShowCSVTests(unittest.TestCase):
         ]
         self.assertEqual(expected_output, lines)
 
+    def test_sort_arguments(self):
+        self.ui.parse_args(["some.csv"])
+        self.assertIn("sort", self.ui.parsed_args)
+        self.assertEqual(self.ui.parsed_args.sort, None)
+        self.ui.parse_args(["some.csv", "-sort"])
+        self.assertEqual(self.ui.parsed_args.sort, [])
+        self.ui.parse_args(["some.csv", "-sort", "name"])
+        self.assertEqual(self.ui.parsed_args.sort, ["name"])
+        # Multiple use
+        self.ui.parse_args(["some.csv", "-sort", "name", "-sort", "age"])
+        self.assertEqual(self.ui.parsed_args.sort, ["name", "age"])
+        # Comma separated
+        self.ui.parse_args(["some.csv", "-sort", "name,age"])
+        self.assertEqual(self.ui.parsed_args.sort, ["name", "age"])
+        # Mix
+        self.ui.parse_args(["some.csv", "-sort", "name,age", "-sort", "height,weight"])
+        self.assertEqual(self.ui.parsed_args.sort, ["name", "age", "height", "weight"])
+
+    def test_select_arguments(self):
+        self.ui.parse_args(["some.csv"])
+        self.assertIn("select", self.ui.parsed_args)
+        self.assertEqual(self.ui.parsed_args.select, {})
+        self.ui.parse_args("some.csv -select name=bob".split())
+        self.assertEqual(self.ui.parsed_args.select, {"name": "bob"})
+        # Multiple use
+        self.ui.parse_args("some.csv -select name=bob -select age=33".split())
+        self.assertEqual(self.ui.parsed_args.select, {"name": "bob", "age": "33"})
+        self.ui.parse_args("some.csv -select name=bob age=33".split())
+        self.assertEqual(self.ui.parsed_args.select, {"name": "bob", "age": "33"})
+
+    def test_select(self):
+        def block():
+            self.ui.main("data/cars.csv -select Make=GMC".split())
+        lines = self.capture_block_output(block)
+        expected = dedent("""\
+        |Make|Model |Year|
+        |----|------|----|
+        |GMC |Safari|2002|""")
+        self.assertEqual(expected, "\n".join(lines))
+
+    def test_lookup_arguments(self):
+        self.ui.parse_args(["some.csv"])
+        self.assertIn("lookup", self.ui.parsed_args)
+        self.assertEqual(self.ui.parsed_args.lookup, [])
+        self.ui.parse_args("some.csv -lookup age name=bob".split())
+        self.assertIn("lookup_spec", self.ui.parsed_args)
+        self.assertEqual(self.ui.parsed_args.lookup, ["age"])
+        self.assertEqual(self.ui.parsed_args.lookup_spec, {"name": "bob"})
+        # Multiple use
+        self.ui.make_arg_parser()
+        self.ui.parse_args("some.csv -lookup age name=bob age=33 -lookup w=5 h=20".split())
+        self.assertEqual(self.ui.parsed_args.lookup, ["age"])
+        self.assertEqual(self.ui.parsed_args.lookup_spec, {"name": "bob", "age": "33", "w": "5", "h": "20"})
+        # First argument is a key value but should be a field list
+        self.ui.make_arg_parser()
+        took_exception = False
+        try:
+            self.ui.parse_args("some.csv -lookup name=bob age=33 -lookup w=5 h=20".split())
+        except argparse.ArgumentTypeError as e:
+            self.assertIn("should be a field list", e.args[0])
+            took_exception = True
+        self.assertTrue(took_exception)
+
+    def test_lookup(self):
+        def block():
+            self.ui.main("data/cars.csv -lookup Make,Year Make=Ford Year=1996 Model=Windstar".split())
+        output = self.capture_block_output(block)
+        self.assertEqual(len(output), 1)
+        self.assertEqual(output[0], "Ford, 1996")
+
+    def test_lookup_not_found(self):
+        def block():
+            self.ui.main("data/cars.csv -lookup Make Make=Ford Year=1966".split())
+        exception_taken = False
+        try:
+            output = self.capture_block_output(block)
+        except CSVShowError as e:
+            self.assertIn("Lookup failed", e.args[0])
+            # print(e.args[0])
+            exception_taken = True
+        self.assertTrue(exception_taken)
+
+    def test_see_help_output(self):
+        self.ui.make_arg_parser()
+        #print(self.ui.parser.format_help())
+
+    def test_see_final_output(self):
+        def block():
+            self.ui.main((self.dir + "/data/cars.csv -sort").split())
+        output = self.capture_block_output(block)
+        #print("\n".join(output))
 
 if __name__ == '__main__':
     unittest.main()
