@@ -98,6 +98,24 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
                          "|LongThin*|1234567*|", result
                          )
 
+    def test_max_width(self):
+        rows = [["Fork", "2"], ["Spoon", "3000"],
+                ["LongThing123", "1234567890123456789"]
+                ]
+        db = CSVShowDB(rows, ["Name", "Quantity"])
+        self.show.set_db(db)
+        self.show.max_width_by_name["Name"] = 5
+        self.show.max_width_by_name["Quantity"] = 7
+        longest_widths = self.show.find_longest_column_widths()
+        # Now test the final output string
+        result = self.show.format_output()
+        self.assertEqual("|Name |Quanti*|\n" +
+                         "|-----|-------|\n" +
+                         "|Fork |2      |\n" +
+                         "|Spoon|3000   |\n" +
+                         "|Long*|123456*|", result
+                         )
+
     def test_width_histogram(self):
         rows = [["Forks", "2000"], ["Spoon", "3000"],
                 ["LongThing123", "1234567890123456789", "Surprise Data"]]

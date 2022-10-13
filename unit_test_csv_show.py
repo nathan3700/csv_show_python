@@ -129,6 +129,30 @@ class ShowCSVTests(unittest.TestCase):
             exception_taken = True
         self.assertTrue(exception_taken)
 
+    def test_can_get_max_width_from_user(self):
+        self.ui.parse_args("cars.csv -max_width 5".split())
+        self.assertIn("max_width", self.ui.parsed_args)
+        self.ui.parsed_args = None
+        self.ui.parse_args("cars.csv -max 5".split())
+        self.assertIn("max_width", self.ui.parsed_args)
+        self.assertEqual(5, self.ui.parsed_args.max_width)
+
+    def test_user_set_max_width(self):
+        def block():
+            self.ui.main("data/cars.csv -max_width 5".split())
+        lines = self.capture_block_output(block)
+        expected_output = [
+            "|Make |Model|Year|",
+            '|-----|-----|----|',
+            "|Ford |Expe*|2016|",
+            "|Honda|Acco*|2007|",
+            "|Ford |Expl*|2003|",
+            "|Ford |Wind*|1996|",
+            "|GMC  |Safa*|2002|",
+            "|Tesla|Mode*|2015|"
+        ]
+        self.assertEqual(expected_output, lines)
+
     def test_see_help_output(self):
         self.ui.make_arg_parser()
         #print(self.ui.parser.format_help())

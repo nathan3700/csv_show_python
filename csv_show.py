@@ -29,6 +29,9 @@ class CsvShow:
             if len(self.parsed_args.select) > 0:
                 self.db = self.db.select(self.parsed_args.select)
             self.formatter.set_db(self.db)
+            if self.parsed_args.max_width is not None:
+                for column_name in self.db.column_names:
+                    self.formatter.max_width_by_name[column_name] = self.parsed_args.max_width
             print(self.formatter.format_output())
 
     def get_lookup(self):
@@ -71,6 +74,7 @@ class CsvShow:
         self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("Fields", "Key=Value"),
                                  help="Lookup fields (comma separated) with Key1=Value1,Key2=Value2,... "
                                       "(/regex/ allowed for value)")
+        self.parser.add_argument("-max_width", type=int, help="Set the maximum column width")
 
 
 class ParseCommaSeparatedArgs(argparse.Action):
