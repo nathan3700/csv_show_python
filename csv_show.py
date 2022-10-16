@@ -7,6 +7,7 @@ import csv
 import sys
 import os
 
+
 class CsvShow:
     def __init__(self):
         self.db = CSVShowDB()
