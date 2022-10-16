@@ -58,7 +58,7 @@ class CsvShow:
     @staticmethod
     def fix_screen_width():
         if 'COLUMNS' not in os.environ:
-            os.environ['COLUMNS'] = "100"
+            os.environ['COLUMNS'] = "120"
 
     def parse_args(self, args):
         self.parsed_args = self.parser.parse_args(args)
@@ -66,15 +66,19 @@ class CsvShow:
     def make_arg_parser(self):
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument("csv_file", help="CSV file to be viewed")
-        self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs,
-                                 help="Sort on these fields: Field1,Field2,...")
-        self.parser.add_argument("-select", action=ParseKVPairs, metavar="Key=Value",
-                                 help="Select rows with Key1=Value1,Key2=Value2,... "
-                                      "(/regex/ allowed for value)")
-        self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("Fields", "Key=Value"),
-                                 help="Lookup fields (comma separated) with Key1=Value1,Key2=Value2,... "
-                                      "(/regex/ allowed for value)")
+        self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs, metavar="FIELD_LIST",
+                                 help="Sort on these fields (FIELD_LIST is comma separated)")
+        self.parser.add_argument("-select", action=ParseKVPairs, metavar="KEY=VALUE",
+                                 help="Select matching rows. (/regex/ allowed in VALUES)")
+        self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY=VALUE"),
+                                 help="Lookup fields of first matching record (FIELD_LIST is comma separated) "
+                                      "(/regex/ allowed in VALUES)")
         self.parser.add_argument("-max_width", type=int, help="Set the maximum column width")
+        self.parser.add_argument("-columns", action=ParseCommaSeparatedArgs,
+                                 help="Show only these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
+        self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
+                                 help="Omit these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
+
 
 
 class ParseCommaSeparatedArgs(argparse.Action):

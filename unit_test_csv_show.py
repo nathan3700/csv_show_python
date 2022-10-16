@@ -153,6 +153,17 @@ class ShowCSVTests(unittest.TestCase):
         ]
         self.assertEqual(expected_output, lines)
 
+    def test_columns_arguments(self):
+        self.ui.parse_args(["some.csv"])
+        self.assertIn("columns", self.ui.parsed_args)
+        self.assertIn("nocolumns", self.ui.parsed_args)
+        self.assertEqual(self.ui.parsed_args.columns, None)
+        self.assertEqual(self.ui.parsed_args.nocolumns, None)
+        self.ui.parse_args("some.csv -columns red,green,blue".split())
+        self.assertEqual(["red", "green", "blue"], self.ui.parsed_args.columns)
+        self.ui.parse_args("some.csv -nocolumns red,green,blue".split())
+        self.assertEqual(["red", "green", "blue"], self.ui.parsed_args.nocolumns)
+
     def test_see_help_output(self):
         self.ui.make_arg_parser()
         #print(self.ui.parser.format_help())
