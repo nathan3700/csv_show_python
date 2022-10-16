@@ -24,6 +24,12 @@ class CSVShowDB:
         self.__curr_row += 1
         return row
 
+    def __eq__(self, other):
+        return isinstance(other, CSVShowDB) and other.rows == self.rows and other.column_names == self.column_names
+
+    def __repr__(self):
+        return f"Header: {self.column_names}\nData: {self.rows}"
+
     def clear(self):
         self.column_names.clear()
         self.rows.clear()
@@ -160,4 +166,16 @@ class CSVShowDB:
         def key_func(row):
             return RowComparable(row, sort_col_nums)
         self.rows = sorted(self.rows, reverse=reverse, key=key_func)
+
+    def select_columns(self, selected_columns):
+        selected_column_numbers = [self.column_number_by_name[column] for column in selected_columns]
+        new_rows = [self.get_row_with_columns_by_number(row, selected_column_numbers) for row in self.rows]
+        return CSVShowDB(new_rows, selected_columns)
+
+    @staticmethod
+    def get_row_with_columns_by_number(row, selected_column_numbers):
+        new_row = []
+        for column_number in selected_column_numbers:
+            new_row.append(row[column_number])
+        return new_row
 

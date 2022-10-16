@@ -215,6 +215,24 @@ class ShowCSVDBTests(unittest.TestCase):
                     ]
         self.assertEqual(expected, self.db.rows)
 
+    def test_select_columns(self):
+        self.setUPDefaultData()
+        expected = CSVShowDB([
+            ["Tom"],
+            ["Ella"],
+            ["Richard"],
+            ["Katy"]
+        ], ["Name"])
+        self.assertEqual(expected, self.db.select_columns(["Name"]))
+
+        expected = CSVShowDB([
+            ["25", "Tom"],
+            ["30", "Ella"],
+            ["50", "Richard"],
+            ["50", "Katy"]
+        ], ["Age", "Name"])
+        self.assertEqual(expected, self.db.select_columns(["Age", "Name"]))
+
 
 if __name__ == '__main__':
     unittest.main()

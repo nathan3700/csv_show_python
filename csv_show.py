@@ -29,6 +29,14 @@ class CsvShow:
         else:
             if len(self.parsed_args.select) > 0:
                 self.db = self.db.select(self.parsed_args.select)
+            if self.parsed_args.columns is not None or self.parsed_args.nocolumns is not None:
+                nocolumns = self.parsed_args.nocolumns or []
+                selected_columns = self.parsed_args.columns or self.db.column_names
+                selected_columns = [column for column in selected_columns if column not in nocolumns]
+                try:
+                    self.db = self.db.select_columns(selected_columns)
+                except KeyError:
+                    raise CSVShowError(f"Invalid column name")
             self.formatter.set_db(self.db)
             if self.parsed_args.max_width is not None:
                 for column_name in self.db.column_names:
