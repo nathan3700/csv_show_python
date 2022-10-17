@@ -174,5 +174,13 @@ class ShowCSVTests(unittest.TestCase):
         output = self.capture_block_output(block)
         #print("\n".join(output))
 
+    def test_can_parse_other_db_types(self):
+        self.ui.parse_args((self.dir + "/data/cars.tsv -sep \\t").split())
+        self.ui.read_db(self.ui.parsed_args.csv_file)
+        self.ui.parse_args([self.dir + "/data/cars.txt", "-sep", " "])
+        self.ui.read_db(self.ui.parsed_args.csv_file)
+        self.ui.parse_args((self.dir + "/data/cars.tsv -sep guess").split())
+        self.ui.read_db(self.ui.parsed_args.csv_file)
+
 if __name__ == '__main__':
     unittest.main()

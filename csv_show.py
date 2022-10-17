@@ -15,6 +15,7 @@ class CsvShow:
         self.has_header = True
         self.parser = None
         self.parsed_args = argparse.Namespace()
+        self.dialect = csv.excel
 
     def main(self, args):
         self.fix_screen_width()
@@ -29,52 +30,23 @@ class CsvShow:
         else:
             if len(self.parsed_args.select) > 0:
                 self.db = self.db.select(self.parsed_args.select)
-            if self.parsed_args.columns is not None or self.parsed_args.nocolumns is not None:
-                nocolumns = self.parsed_args.nocolumns or []
-                selected_columns = self.parsed_args.columns or self.db.column_names
-                selected_columns = [column for column in selected_columns if column not in nocolumns]
-                try:
-                    self.db = self.db.select_columns(selected_columns)
-                except KeyError:
-                    raise CSVShowError(f"Invalid column name")
+            self.apply_column_changes()
             self.formatter.set_db(self.db)
             if self.parsed_args.max_width is not None:
                 for column_name in self.db.column_names:
                     self.formatter.max_width_by_name[column_name] = self.parsed_args.max_width
             print(self.formatter.format_output())
 
-    def get_lookup(self):
-        lookup_row = self.db.lookup_row(self.parsed_args.lookup_spec)
-        if lookup_row is None:
-            raise CSVShowError("Lookup failed. Lookup spec: " + str(self.parsed_args.lookup_spec))
-        rec = self.db.row_to_record(lookup_row)
-        values = []
-        for field in self.parsed_args.lookup:
-            values.append(rec[field])
-        return values
-
-    def read_db(self, file):
-        self.db.clear()
-        file_handle = open(file)
-        reader = csv.reader(file_handle)
-        if self.has_header:
-            column_names = reader.__next__()
-            self.db.set_column_names(column_names)
-        remaining_rows = [row for row in reader]
-        self.db.add_rows(remaining_rows)
-        file_handle.close()
-
     @staticmethod
     def fix_screen_width():
         if 'COLUMNS' not in os.environ:
             os.environ['COLUMNS'] = "120"
 
-    def parse_args(self, args):
-        self.parsed_args = self.parser.parse_args(args)
-
     def make_arg_parser(self):
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument("csv_file", help="CSV file to be viewed")
+        self.parser.add_argument("-sep", default=",", help="Separator used for input data. "
+                                                           "Popular values: ',' (Default), '\\t', ' ', and 'guess'")
         self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs, metavar="FIELD_LIST",
                                  help="Sort on these fields (FIELD_LIST is comma separated)")
         self.parser.add_argument("-select", action=ParseKVPairs, metavar="KEY=VALUE",
@@ -88,6 +60,53 @@ class CsvShow:
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
                                  help="Omit these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
 
+    def parse_args(self, args):
+        self.parsed_args = self.parser.parse_args(args)
+        self.apply_sep_to_dialect()
+
+    def apply_sep_to_dialect(self):
+        if self.parsed_args.sep in ["\\t", "\t"]:
+            self.dialect = csv.excel_tab
+        elif self.parsed_args.sep == " ":
+            self.dialect.delimiter = self.parsed_args.sep
+            self.dialect.skipinitialspace = True
+        elif self.parsed_args.sep == "guess":
+            with open(self.parsed_args.csv_file, newline='') as csvfile:
+                self.dialect = csv.Sniffer().sniff(csvfile.read(1024))
+                csvfile.close()
+        else:
+            self.dialect.delimiter = self.parsed_args.sep
+
+    def read_db(self, file):
+        self.db.clear()
+        file_handle = open(file)
+        reader = csv.reader(file_handle, dialect=self.dialect)
+        if self.has_header:
+            column_names = reader.__next__()
+            self.db.set_column_names(column_names)
+        remaining_rows = [row for row in reader]
+        self.db.add_rows(remaining_rows)
+        file_handle.close()
+
+    def get_lookup(self):
+        lookup_row = self.db.lookup_row(self.parsed_args.lookup_spec)
+        if lookup_row is None:
+            raise CSVShowError("Lookup failed. Lookup spec: " + str(self.parsed_args.lookup_spec))
+        rec = self.db.row_to_record(lookup_row)
+        values = []
+        for field in self.parsed_args.lookup:
+            values.append(rec[field])
+        return values
+
+    def apply_column_changes(self):
+        if self.parsed_args.columns is not None or self.parsed_args.nocolumns is not None:
+            nocolumns = self.parsed_args.nocolumns or []
+            selected_columns = self.parsed_args.columns or self.db.column_names
+            selected_columns = [column for column in selected_columns if column not in nocolumns]
+            try:
+                self.db = self.db.select_columns(selected_columns)
+            except KeyError:
+                raise CSVShowError(f"Invalid column name")
 
 
 class ParseCommaSeparatedArgs(argparse.Action):

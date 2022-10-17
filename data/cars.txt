@@ -1,0 +1,7 @@
+Make    Model       Year
+Ford    Expedition  2016
+Honda   Accord      2007
+Ford    Explorer    2003
+Ford    Windstar    1996
+GMC     Safari      2002
+Tesla   "Model S"   2015
