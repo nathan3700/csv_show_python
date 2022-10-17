@@ -47,6 +47,8 @@ class CsvShow:
         self.parser.add_argument("csv_file", help="CSV file to be viewed")
         self.parser.add_argument("-sep", default=",", help="Separator used for input data. "
                                                            "Popular values: ',' (Default), '\\t', ' ', and 'guess'")
+        self.parser.add_argument("-noheader", action="store_true", default=False,
+                                 help="Indicates that the first row does not have column header names")
         self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs, metavar="FIELD_LIST",
                                  help="Sort on these fields (FIELD_LIST is comma separated)")
         self.parser.add_argument("-select", action=ParseKVPairs, metavar="KEY=VALUE",
@@ -76,6 +78,9 @@ class CsvShow:
                 csvfile.close()
         else:
             self.dialect.delimiter = self.parsed_args.sep
+
+        if self.parsed_args.noheader:
+            self.has_header = False
 
     def read_db(self, file):
         self.db.clear()
