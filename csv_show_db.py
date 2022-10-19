@@ -40,6 +40,9 @@ class CSVShowDB:
         else:
             return self.rows[row_num]
 
+    def row_to_record(self, row):
+        return {key: val for key, val in zip(self.column_names, row)}
+
     def set_column_names(self, names):
         for i in range(len(names)):
             self.set_column_name(i, names[i])
@@ -155,8 +158,13 @@ class CSVShowDB:
             raise CSVShowError(f"Column name not found: {name}")
         return self.column_number_by_name[name]
 
-    def row_to_record(self, row):
-        return {key: val for key, val in zip(self.column_names, row)}
+    def grep(self, regex, regex_flags=0):
+        new_rows = []
+        for row in self.rows:
+            if re.search(regex, " ".join(row), regex_flags):
+                new_rows.append(row)
+        new_db = CSVShowDB(new_rows, self.column_names)
+        return new_db
 
     def sort(self, sort_col_names, reverse=False):
         if len(sort_col_names) == 0:

@@ -1,4 +1,6 @@
 import collections
+import re
+
 from csv_show_db import CSVShowDB
 
 
@@ -26,7 +28,8 @@ class CsvPrintFormatter:
         for row in self.db:
             if row_num > 0 or self.has_header:
                 output += "\n"
-            output += self.format_row(row, longest)
+            formatted_row = self.format_row(row, longest)
+            output += formatted_row
             row_num += 1
 
         return output

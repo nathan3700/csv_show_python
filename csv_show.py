@@ -1,4 +1,6 @@
 #!/bin/env python
+import re
+
 from csv_show_format import CsvPrintFormatter
 from csv_show_db import CSVShowDB
 from csv_show_shared import *
@@ -16,14 +18,18 @@ class CsvShow:
         self.parser = None
         self.parsed_args = argparse.Namespace()
         self.dialect = csv.excel
+        self.regex_flags = re.IGNORECASE
 
     def main(self, args):
         self.fix_screen_width()
         self.make_arg_parser()
         self.parse_args(args)
         self.read_db(self.parsed_args.csv_file)
+
+        # Do sort before lookup since sorting can affect first-lookup found
         if self.parsed_args.sort is not None:
             self.db.sort(self.parsed_args.sort)
+
         if len(self.parsed_args.lookup) > 0:
             values = self.get_lookup()
             print(", ".join(values))
@@ -31,6 +37,8 @@ class CsvShow:
             if len(self.parsed_args.select) > 0:
                 self.db = self.db.select(self.parsed_args.select)
             self.apply_column_changes()
+            if self.parsed_args.grep:
+                self.db = self.db.grep(self.parsed_args.grep, self.regex_flags)
             self.formatter.set_db(self.db)
             if self.parsed_args.max_width is not None:
                 for column_name in self.db.column_names:
@@ -56,9 +64,13 @@ class CsvShow:
         self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY=VALUE"),
                                  help="Lookup fields of first matching record (FIELD_LIST is comma separated) "
                                       "(/regex/ allowed in VALUES)")
+        self.parser.add_argument("-pre_grep", metavar="REGEX",
+                                 help="Grep rows using space-separated data before any database modifications")
+        self.parser.add_argument("-grep", metavar="REGEX",
+                                 help="Grep rows after database modifications such as column reordering")
         self.parser.add_argument("-max_width", type=int, help="Set the maximum column width")
         self.parser.add_argument("-columns", action=ParseCommaSeparatedArgs,
-                                 help="Show only these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
+                                 help="Show only these columns in this order (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
                                  help="Omit these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
 
@@ -89,7 +101,13 @@ class CsvShow:
         if self.has_header:
             column_names = reader.__next__()
             self.db.set_column_names(column_names)
-        remaining_rows = [row for row in reader]
+        if self.parsed_args.pre_grep:
+            remaining_rows = []
+            for row in reader:
+                if re.search(self.parsed_args.pre_grep, " ".join(row), self.regex_flags):
+                    remaining_rows.append(row)
+        else:
+            remaining_rows = [row for row in reader]
         self.db.add_rows(remaining_rows)
         file_handle.close()
 

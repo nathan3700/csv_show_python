@@ -23,7 +23,8 @@ class ShowCSVTests(unittest.TestCase):
         return lines
 
     def test_can_read_csv_from_disk(self):
-        self.ui.read_db("data/cars.csv")
+        self.ui.parse_args([self.dir + "/data/cars.csv"])
+        self.ui.read_db(self.ui.parsed_args.csv_file)
         self.assertIn("Make", self.ui.db.column_names)
         self.assertEqual(self.ui.db.rows[0][0], "Ford")
 
@@ -79,7 +80,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_select(self):
         def block():
-            self.ui.main("data/cars.csv -select Make=GMC".split())
+            self.ui.main((self.dir + "/data/cars.csv -select Make=GMC").split())
         lines = self.capture_block_output(block)
         expected = dedent("""\
         |Make|Model |Year|
@@ -112,14 +113,14 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_lookup(self):
         def block():
-            self.ui.main("data/cars.csv -lookup Make,Year Make=Ford Year=1996 Model=Windstar".split())
+            self.ui.main((self.dir + "/data/cars.csv -lookup Make,Year Make=Ford Year=1996 Model=Windstar").split())
         output = self.capture_block_output(block)
         self.assertEqual(len(output), 1)
         self.assertEqual(output[0], "Ford, 1996")
 
     def test_lookup_not_found(self):
         def block():
-            self.ui.main("data/cars.csv -lookup Make Make=Ford Year=1966".split())
+            self.ui.main((self.dir + "/data/cars.csv -lookup Make Make=Ford Year=1966").split())
         exception_taken = False
         try:
             output = self.capture_block_output(block)
@@ -128,6 +129,39 @@ class ShowCSVTests(unittest.TestCase):
             # print(e.args[0])
             exception_taken = True
         self.assertTrue(exception_taken)
+
+    def test_grep_arguments(self):
+        self.ui.parse_args("some.csv -pre_grep Ford -grep 2.*".split())
+        self.assertIn("pre_grep", self.ui.parsed_args)
+        self.assertIn("grep", self.ui.parsed_args)
+
+    def test_pre_grep(self):
+        def block():
+            self.ui.main((self.dir + "/data/cars.csv -pre_grep ford.*2.*").split())
+
+        lines = self.capture_block_output(block)
+        self.assertEqual(
+            [
+                "|Make|Model     |Year|",
+                "|----|----------|----|",
+                "|Ford|Expedition|2016|",
+                "|Ford|Explorer  |2003|"
+            ], lines
+        )
+
+    def test_post_grep(self):
+        def block():
+            self.ui.main((self.dir + "/data/cars.csv -columns Year,Make -grep 2.*ford").split())
+
+        lines = self.capture_block_output(block)
+        self.assertEqual(
+            [
+                "|Year|Make|",
+                "|----|----|",
+                "|2016|Ford|",
+                "|2003|Ford|"
+            ], lines
+        )
 
     def test_can_get_max_width_from_user(self):
         self.ui.parse_args("cars.csv -max_width 5".split())
@@ -139,7 +173,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_user_set_max_width(self):
         def block():
-            self.ui.main("data/cars.csv -max_width 5".split())
+            self.ui.main((self.dir + "/data/cars.csv -max_width 5").split())
         lines = self.capture_block_output(block)
         expected_output = [
             "|Make |Model|Year|",

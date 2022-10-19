@@ -1,3 +1,4 @@
+import re
 import unittest
 from csv_show_db import *
 
@@ -131,6 +132,14 @@ class ShowCSVDBTests(unittest.TestCase):
         result_db = self.db.select({"Age": "50", "Name": "Katy"})
         expected = CSVShowDB([["Katy", "50", "5 feet"]], self.db.column_names)
         self.assertEqual(expected.rows, result_db.rows)
+
+    def test_grep(self):
+        self.setUPDefaultData()
+        result_db = self.db.grep("(rich|katy).*50.*", re.IGNORECASE)
+        expected = CSVShowDB(
+            [["Richard", "50", "6 feet"],
+             ["Katy", "50", "5 feet"]], self.db.column_names)
+        self.assertEqual(expected, result_db)
 
     def test_update_data(self):
         self.db.set_column_names(["ItemA", "ItemB", "ItemC"])
