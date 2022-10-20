@@ -35,7 +35,7 @@ class CsvShow:
             print(", ".join(values))
         else:
             if len(self.parsed_args.select) > 0:
-                self.db = self.db.select(self.parsed_args.select)
+                self.db = self.db.select(self.parsed_args.select, self.regex_flags)
             self.apply_column_changes()
             if self.parsed_args.grep:
                 self.db = self.db.grep(self.parsed_args.grep, self.regex_flags)
@@ -43,7 +43,12 @@ class CsvShow:
             if self.parsed_args.max_width is not None:
                 for column_name in self.db.column_names:
                     self.formatter.max_width_by_name[column_name] = self.parsed_args.max_width
-            print(self.formatter.format_output())
+            if self.parsed_args.csv:
+                output = self.formatter.format_output_as_csv()
+                print(output, end="")
+            else:
+                output = self.formatter.format_output()
+                print(output)
 
     @staticmethod
     def fix_screen_width():
@@ -73,10 +78,14 @@ class CsvShow:
                                  help="Show only these columns in this order (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
                                  help="Omit these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
+        self.parser.add_argument("-csv", default=False, action="store_true", help="Format output as CSV")
+        self.parser.add_argument("-match_case", default=False, action="store_true",
+                                 help="Regular expressions match on case (Default is IGNORECASE)")
 
     def parse_args(self, args):
         self.parsed_args = self.parser.parse_args(args)
         self.apply_sep_to_dialect()
+        self.apply_regex_flags()
 
     def apply_sep_to_dialect(self):
         if self.parsed_args.sep in ["\\t", "\t"]:
@@ -93,6 +102,10 @@ class CsvShow:
 
         if self.parsed_args.noheader:
             self.has_header = False
+
+    def apply_regex_flags(self):
+        if self.parsed_args.match_case:
+            self.regex_flags = 0
 
     def read_db(self, file):
         self.db.clear()

@@ -23,15 +23,31 @@ class CsvPrintFormatter:
             output += self.format_row(self.db.column_names, longest)
             output += "\n"
             output += self.format_row(["-" * x for x in longest], longest)
-
-        row_num = 0
-        for row in self.db:
-            if row_num > 0 or self.has_header:
+            if len(self.db.rows) > 0:
                 output += "\n"
+
+        last_index = len(self.db.rows) - 1
+        for row_index in range(len(self.db.rows)):
+            row = self.db.rows[row_index]
             formatted_row = self.format_row(row, longest)
             output += formatted_row
-            row_num += 1
+            if row_index != last_index:
+                output += "\n"
 
+        return output
+
+    def format_output_as_csv(self):
+        output = ''
+        if self.has_header:
+            output += ",".join(self.db.column_names)
+            if len(self.db.rows) > 0:
+                output += "\n"
+        last_index = len(self.db.rows) - 1
+        for row_index in range(len(self.db.rows)):
+            row = self.db.rows[row_index]
+            output += ",".join(row)
+            if row_index != last_index:
+                output += "\n"
         return output
 
     @classmethod

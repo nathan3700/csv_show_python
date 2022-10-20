@@ -198,6 +198,22 @@ class ShowCSVTests(unittest.TestCase):
         self.ui.parse_args("some.csv -nocolumns red,green,blue".split())
         self.assertEqual(["red", "green", "blue"], self.ui.parsed_args.nocolumns)
 
+    def test_format_output_as_csv(self):
+        def block():
+            self.ui.main((self.dir + "/data/cars.csv -csv").split())
+        output = "\n".join(self.capture_block_output(block))
+
+        fh = open(self.dir + "/data/cars.csv")
+        expected = "".join(fh.readlines())
+        fh.close()
+        self.assertEqual(expected, output)
+
+    def test_match_case(self):
+        self.ui.parse_args("some.csv".split())
+        self.assertEqual(self.ui.regex_flags, re.IGNORECASE)
+        self.ui.parse_args("some.csv -match_case".split())
+        self.assertEqual(self.ui.regex_flags, 0)
+
     def test_see_help_output(self):
         self.ui.make_arg_parser()
         #print(self.ui.parser.format_help())

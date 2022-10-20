@@ -113,12 +113,12 @@ class CSVShowDB:
         else:
             return self.get_row(row_numbers[0])
 
-    def select(self, criteria):
-        rows, row_numbers = self.select_rows_and_row_numbers(criteria)
+    def select(self, criteria, regex_flags=0):
+        rows, row_numbers = self.select_rows_and_row_numbers(criteria, regex_flags)
         new_db = CSVShowDB(rows, self.column_names)
         return new_db
 
-    def select_rows_and_row_numbers(self, criteria):
+    def select_rows_and_row_numbers(self, criteria, regex_flags=0):
         # Unpack the criteria from a dictionary to these lists
         criteria_column_names = []
         criteria_col_numbers = []
@@ -136,7 +136,7 @@ class CSVShowDB:
             for x in range(len(criteria_column_names)):
                 col_name = criteria_column_names[x]
                 regex = self.get_regex(criteria[col_name])
-                if regex and re.match(regex, row_data[criteria_col_numbers[x]]):
+                if regex and re.search(regex, row_data[criteria_col_numbers[x]], flags=regex_flags):
                     matches_found += 1
                 elif row_data[criteria_col_numbers[x]] == criteria[col_name]:
                     matches_found += 1
