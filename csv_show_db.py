@@ -4,6 +4,7 @@ import re
 
 class CSVShowDB:
     def __init__(self, new_db=None, column_names=[]):
+        self.num_named_columns = 0
         self.__curr_row = 0
         self.rows_as_records = False
         self.column_names = []
@@ -44,6 +45,7 @@ class CSVShowDB:
         return {key: val for key, val in zip(self.column_names, row)}
 
     def set_column_names(self, names):
+        self.num_named_columns = len(names)
         for i in range(len(names)):
             self.set_column_name(i, names[i])
 
@@ -58,6 +60,8 @@ class CSVShowDB:
             self.add_row(row.copy())
 
     def add_row(self, row):
+        while len(row) < self.num_named_columns:
+            row.append("")
         self.rows.append(row)
         if len(row) > len(self.column_names):
             self.add_unnamed_column_names(len(row))

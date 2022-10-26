@@ -76,6 +76,24 @@ class ShowCSVDBTests(unittest.TestCase):
         self.db.insert_row(1, ["AA1", "BB1"])
         self.assertEqual([["AA0", "BB0"], ["AA1", "BB1"], ["AA2", "BB2"]], self.db.rows)
 
+    def test_surprise_more_columns(self):
+        self.db.set_column_names(["ItemA", "ItemB"])
+        self.db.add_rows([["AA0", "BB0", "CC0"], ["AA1", "BB1", "CC1", "DD1"]])
+        self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "BB1", "CC1", "DD1"]], self.db.rows)
+        self.assertEqual(["ItemA", "ItemB", "Col2", "Col3"], self.db.column_names)
+
+    def test_surprise_fewer_columns(self):
+        self.db.set_column_names(["ItemA", "ItemB", "ItemC", "ItemD"])
+        self.db.add_rows([["AA0", "BB0", "CC0"], ["AA1", "BB1"]])
+        self.assertEqual([["AA0", "BB0", "CC0", ""], ["AA1", "BB1", "", ""]], self.db.rows)
+        self.assertEqual(["ItemA", "ItemB", "ItemC", "ItemD"], self.db.column_names)
+
+    def test_corrupt_columns(self):
+        self.db.set_column_names(["ItemA", "ItemB"])
+        self.db.add_rows([["AA0", "BB0", "CC0"], ["AA1", "BB1"]])
+        self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "BB1"]], self.db.rows)
+        self.assertEqual(["ItemA", "ItemB", "Col2"], self.db.column_names)
+
     def test_get_length_and_width(self):
         self.setUPDefaultData()
         self.assertEqual(self.db.get_length(), 4)
