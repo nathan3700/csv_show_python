@@ -19,6 +19,7 @@ class CsvShow:
         self.parsed_args = argparse.Namespace()
         self.dialect = csv.excel
         self.regex_flags = re.IGNORECASE
+        self.removed_columns = set()
 
     def main(self, args):
         self.fix_screen_width()
@@ -40,9 +41,13 @@ class CsvShow:
             if self.parsed_args.grep:
                 self.db = self.db.grep(self.parsed_args.grep, self.regex_flags)
             self.formatter.set_db(self.db)
-            if self.parsed_args.max_width is not None:
+            if self.parsed_args.max_width[None] is not None:
                 for column_name in self.db.column_names:
-                    self.formatter.max_width_by_name[column_name] = self.parsed_args.max_width
+                    self.formatter.max_width_by_name[column_name] = self.parsed_args.max_width[None]
+            for max_width_column in self.parsed_args.max_width:
+                if max_width_column in self.db.column_names:
+                    self.formatter.max_width_by_name[max_width_column] = self.parsed_args.max_width[max_width_column]
+
             if self.parsed_args.csv:
                 output = self.formatter.format_output_as_csv()
                 print(output, end="")
@@ -56,7 +61,9 @@ class CsvShow:
             os.environ['COLUMNS'] = "120"
 
     def make_arg_parser(self):
-        self.parser = argparse.ArgumentParser()
+        self.parser = argparse.ArgumentParser(add_help=False)
+        self.parser.add_argument("-help", "-h", action="help", default=argparse.SUPPRESS,
+                                 help='Show this help message and exit.')
         self.parser.add_argument("csv_file", help="CSV file to be viewed")
         self.parser.add_argument("-sep", default=",", help="Separator used for input data. "
                                                            "Popular values: ',' (Default), '\\t', ' ', and 'guess'")
@@ -73,7 +80,8 @@ class CsvShow:
                                  help="Grep rows using space-separated data before any database modifications")
         self.parser.add_argument("-grep", metavar="REGEX",
                                  help="Grep rows after database modifications such as column reordering")
-        self.parser.add_argument("-max_width", type=int, help="Set the maximum column width")
+        self.parser.add_argument("-max_width", action=ParseMaxWidthSpec, metavar=("[MAX_WIDTH]", "COLUMN_NAME=WIDTH"),
+                                 help="Set the maximum column width globally, or on a per column basis. ")
         self.parser.add_argument("-columns", action=ParseCommaSeparatedArgs,
                                  help="Show only these columns in this order (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
@@ -139,6 +147,10 @@ class CsvShow:
             nocolumns = self.parsed_args.nocolumns or []
             selected_columns = self.parsed_args.columns or self.db.column_names
             selected_columns = [column for column in selected_columns if column not in nocolumns]
+            orig = set(self.db.column_names)
+            sel = set(selected_columns)
+            self.removed_columns = orig - sel
+
             try:
                 self.db = self.db.select_columns(selected_columns)
             except KeyError:
@@ -151,7 +163,7 @@ class ParseCommaSeparatedArgs(argparse.Action):
             raise ValueError("nargs and default cannot be changed.  Will always use ? and None respectively")
         nargs = "?"
         kwargs["default"] = None
-        super(ParseCommaSeparatedArgs, self).__init__(option_strings, dest, nargs, **kwargs)
+        super().__init__(option_strings, dest, nargs, **kwargs)
 
     def __call__(self, parser, namespace, new_values, option_string=None):
         if new_values is None:
@@ -167,33 +179,39 @@ class ParseCommaSeparatedArgs(argparse.Action):
         setattr(namespace, self.dest, new_values)
 
 
-class ParseKVPairs(argparse.Action):
+class ParseKVPairsBase(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        if nargs is not None or ("default" in kwargs and ["default"] is not None):
-            raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and {} respectively")
-        nargs = "+"
-        kwargs["default"] = {}
-        super(ParseKVPairs, self).__init__(option_strings, dest, nargs, **kwargs)
-
-    def __call__(self, parser, namespace, new_values, option_string=None):
-        kv_pairs = getattr(namespace, self.dest)
-        self.add_new_pairs(kv_pairs, new_values)
+        super().__init__(option_strings, dest, nargs, **kwargs)
+        self.value_type = str
 
     def add_new_pairs(self, kv_pairs, new_values):
         for pair_string in new_values:
             kv = pair_string.split("=")
             if len(kv) != 2:
                 raise argparse.ArgumentError(self, f"This argument must be of the form key=value: \"{pair_string}\"")
-            kv_pairs[kv[0]] = kv[1]
+            kv_pairs[kv[0]] = self.value_type(kv[1])
 
 
-class ParseLookupSpec(ParseKVPairs):
+class ParseKVPairs(ParseKVPairsBase):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        if nargs is not None or ("default" in kwargs and ["default"] is not None):
+            raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and {} respectively")
+        nargs = "+"
+        kwargs["default"] = {}
+        super().__init__(option_strings, dest, nargs, **kwargs)
+
+    def __call__(self, parser, namespace, new_values, option_string=None):
+        kv_pairs = getattr(namespace, self.dest)
+        self.add_new_pairs(kv_pairs, new_values)
+
+
+class ParseLookupSpec(ParseKVPairsBase):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None or ("default" in kwargs and ["default"] is not None):
             raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and [] respectively")
         nargs = "+"
         kwargs["default"] = []
-        super(ParseKVPairs, self).__init__(option_strings, dest, nargs, **kwargs)
+        super().__init__(option_strings, dest, nargs, **kwargs)
 
     def __call__(self, parser, namespace, new_values, option_string=None):
         fields = getattr(namespace, self.dest)
@@ -207,6 +225,34 @@ class ParseLookupSpec(ParseKVPairs):
             fields += new_values[0].split(",")
             new_values.pop(0)
         self.add_new_pairs(kv_pairs, new_values)
+
+
+class ParseMaxWidthSpec(ParseKVPairsBase):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        if nargs is not None or ("default" in kwargs and ["default"] is not None):
+            raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and {None: None} respectively")
+        nargs = "+"
+        kwargs["default"] = {None: None}
+        super().__init__(option_strings, dest, nargs, **kwargs)
+        self.value_type = int
+
+    def __call__(self, parser, namespace, new_values, option_string=None):
+        kv_pairs = getattr(namespace, self.dest)
+        new_kv_strings = [value for value in new_values if "=" in value]
+        new_single_values = [int(value) for value in new_values if "=" not in value]
+        if len(new_single_values) == 1:
+            kv_pairs[None] = new_single_values[0]
+        if len(new_single_values) > 1:
+            raise(argparse.ArgumentTypeError(
+                "Please specify only one default value (values that are not of the form key=value)"))
+        self.add_new_pairs(kv_pairs, new_kv_strings)
+        for key in kv_pairs:
+            if kv_pairs[key] is not None and kv_pairs[key] <= 1:
+                raise(argparse.ArgumentTypeError(
+                    "-max_width: "
+                    "Please choose values that are larger than 1. "
+                    "To eliminate a column use -columns/-nocolumns "
+                ))
 
 
 if __name__ == "__main__":

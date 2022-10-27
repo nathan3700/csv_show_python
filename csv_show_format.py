@@ -51,12 +51,12 @@ class CsvPrintFormatter:
         return output
 
     @classmethod
-    def format_row(cls, row, longest):
+    def format_row(cls, row, col_widths):
         row_str = ""
         for col_num in range(len(row)):
             if col_num == 0:
                 row_str += "|"
-            width = longest[col_num]
+            width = col_widths[col_num]
             data = row[col_num]
             if len(data) > width:  # Remove a character to make room for truncation indicator
                 width -= 1

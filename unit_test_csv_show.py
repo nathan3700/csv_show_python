@@ -5,6 +5,7 @@ import sys
 import os
 from csv_show import *
 from textwrap import dedent
+import argparse
 
 class ShowCSVTests(unittest.TestCase):
     def setUp(self):
@@ -164,26 +165,52 @@ class ShowCSVTests(unittest.TestCase):
         )
 
     def test_can_get_max_width_from_user(self):
-        self.ui.parse_args("cars.csv -max_width 5".split())
+        self.ui.parse_args("cars.csv".split())
         self.assertIn("max_width", self.ui.parsed_args)
+        self.assertEqual({None: None}, self.ui.parsed_args.max_width)
         self.ui.parsed_args = None
         self.ui.parse_args("cars.csv -max 5".split())
         self.assertIn("max_width", self.ui.parsed_args)
-        self.assertEqual(5, self.ui.parsed_args.max_width)
+        self.assertEqual({None: 5}, self.ui.parsed_args.max_width)
+
+    def test_per_column_max_width(self):
+        self.ui.parse_args("some.csv -max_width Model=3".split())
+        self.assertEqual(self.ui.parsed_args.max_width, {None: None, "Model": 3})
+        self.ui.make_arg_parser()
+        self.ui.parse_args("some.csv -max_width 20 Model=3".split())
+        self.assertEqual(self.ui.parsed_args.max_width, {None: 20, "Model": 3})
+        self.ui.make_arg_parser()
+        self.ui.parse_args("some.csv -max_width Model=3 Make=4".split())
+        self.assertEqual(self.ui.parsed_args.max_width, {None: None, "Model": 3, "Make": 4})
+        self.ui.make_arg_parser()
+        self.ui.parse_args("some.csv -max_width 25 -max_width Model=3".split())
+        self.assertEqual(self.ui.parsed_args.max_width, {None: 25, "Model": 3})
+        self.ui.make_arg_parser()
+        saw_exception = False
+        try:
+            self.ui.parse_args("some.csv -max_width 1".split())
+        except argparse.ArgumentTypeError as e:
+            saw_exception = True
+        self.assertTrue(saw_exception)
+        try:
+            self.ui.parse_args("some.csv -max_width Model=0".split())
+        except argparse.ArgumentTypeError as e:
+            saw_exception = True
+        self.assertTrue(saw_exception)
 
     def test_user_set_max_width(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -max_width 5").split())
+            self.ui.main((self.dir + "/data/cars.csv -max_width 5 Year=3").split())
         lines = self.capture_block_output(block)
         expected_output = [
-            "|Make |Model|Year|",
-            '|-----|-----|----|',
-            "|Ford |Expe*|2016|",
-            "|Honda|Acco*|2007|",
-            "|Ford |Expl*|2003|",
-            "|Ford |Wind*|1996|",
-            "|GMC  |Safa*|2002|",
-            "|Tesla|Mode*|2015|"
+            "|Make |Model|Ye*|",
+            '|-----|-----|---|',
+            "|Ford |Expe*|20*|",
+            "|Honda|Acco*|20*|",
+            "|Ford |Expl*|20*|",
+            "|Ford |Wind*|19*|",
+            "|GMC  |Safa*|20*|",
+            "|Tesla|Mode*|20*|"
         ]
         self.assertEqual(expected_output, lines)
 
