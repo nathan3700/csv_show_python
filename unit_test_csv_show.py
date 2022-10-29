@@ -225,6 +225,22 @@ class ShowCSVTests(unittest.TestCase):
         self.ui.parse_args("some.csv -nocolumns red,green,blue".split())
         self.assertEqual(["red", "green", "blue"], self.ui.parsed_args.nocolumns)
 
+    def test_regex_column_matching(self):
+        self.ui.db.column_names = ["Model", "Make", "Measurement"]
+        self.ui.parse_args("some.csv -columns /M.*/".split())
+        result_list = self.ui.get_matching_columns(["/M.*/"])
+        self.assertEqual(["Model", "Make", "Measurement"], result_list)
+        result_list = self.ui.get_matching_columns(["/Mo.*/"])
+        self.assertEqual(["Model"], result_list)
+        result_list = self.ui.get_matching_columns(["/^.*ment$/", "/.*ke/", "Model"])
+        self.assertEqual(["Measurement", "Make", "Model"], result_list)
+        error_seen = False
+        try:
+            result_list = self.ui.get_matching_columns(["NoMatch"])
+        except CSVShowError as e:
+            error_seen = True
+        self.assertTrue(error_seen)
+
     def test_format_output_as_csv(self):
         def block():
             self.ui.main((self.dir + "/data/cars.csv -csv").split())

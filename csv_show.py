@@ -26,6 +26,7 @@ class CsvShow:
         self.make_arg_parser()
         self.parse_args(args)
         self.read_db(self.parsed_args.csv_file)
+        self.match_column_args_to_column_names()
 
         # Do sort before lookup since sorting can affect first-lookup found
         if self.parsed_args.sort is not None:
@@ -61,6 +62,8 @@ class CsvShow:
             os.environ['COLUMNS'] = "120"
 
     def make_arg_parser(self):
+        # noinspection PyPep8Naming
+        explain_FIELD_LIST = "FIELD_LIST is comma separated with /regex/ allowed"
         self.parser = argparse.ArgumentParser(add_help=False)
         self.parser.add_argument("-help", "-h", action="help", default=argparse.SUPPRESS,
                                  help='Show this help message and exit.')
@@ -70,12 +73,12 @@ class CsvShow:
         self.parser.add_argument("-noheader", action="store_true", default=False,
                                  help="Indicates that the first row does not have column header names")
         self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs, metavar="FIELD_LIST",
-                                 help="Sort on these fields (FIELD_LIST is comma separated)")
+                                 help="Sort on these fields. " + explain_FIELD_LIST)
         self.parser.add_argument("-select", action=ParseKVPairs, metavar="KEY=VALUE",
                                  help="Select matching rows. (/regex/ allowed in VALUES)")
         self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY=VALUE"),
-                                 help="Lookup fields of first matching record (FIELD_LIST is comma separated) "
-                                      "(/regex/ allowed in VALUES)")
+                                 help="Lookup fields of first matching record. " + explain_FIELD_LIST +
+                                      ". /regex/ allowed in VALUES")
         self.parser.add_argument("-pre_grep", metavar="REGEX",
                                  help="Grep rows using space-separated data before any database modifications")
         self.parser.add_argument("-grep", metavar="REGEX",
@@ -83,9 +86,9 @@ class CsvShow:
         self.parser.add_argument("-max_width", action=ParseMaxWidthSpec, metavar=("[MAX_WIDTH]", "COLUMN_NAME=WIDTH"),
                                  help="Set the maximum column width globally, or on a per column basis. ")
         self.parser.add_argument("-columns", action=ParseCommaSeparatedArgs,
-                                 help="Show only these columns in this order (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
+                                 help="Show only these columns in this order. " + explain_FIELD_LIST, metavar="FIELD_LIST")
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
-                                 help="Omit these columns (FIELD_LIST is comma separated)", metavar="FIELD_LIST")
+                                 help="Omit these columns. " + explain_FIELD_LIST, metavar="FIELD_LIST")
         self.parser.add_argument("-csv", default=False, action="store_true", help="Format output as CSV")
         self.parser.add_argument("-match_case", default=False, action="store_true",
                                  help="Regular expressions match on case (Default is IGNORECASE)")
@@ -132,6 +135,16 @@ class CsvShow:
         self.db.add_rows(remaining_rows)
         file_handle.close()
 
+    def match_column_args_to_column_names(self):
+        if self.parsed_args.columns:
+            self.parsed_args.columns = self.get_matching_columns(self.parsed_args.columns)
+        if self.parsed_args.nocolumns:
+            self.parsed_args.nocolumns = self.get_matching_columns(self.parsed_args.nocolumns)
+        if self.parsed_args.sort:
+            self.parsed_args.sort = self.get_matching_columns(self.parsed_args.sort)
+        if self.parsed_args.lookup:
+            self.parsed_args.lookup = self.get_matching_columns(self.parsed_args.lookup)
+
     def get_lookup(self):
         lookup_row = self.db.lookup_row(self.parsed_args.lookup_spec)
         if lookup_row is None:
@@ -155,6 +168,30 @@ class CsvShow:
                 self.db = self.db.select_columns(selected_columns)
             except KeyError:
                 raise CSVShowError(f"Invalid column name")
+
+    def get_matching_columns(self, column_expressions):
+        matched_set = set()
+        matched = []
+        for expr in column_expressions:
+            regex = get_regex(expr)
+            expr_did_match = False
+            for col in self.db.column_names:
+                is_selected = False
+                if regex and re.search(regex, col, self.regex_flags):
+                    is_selected = True
+                if not regex and col == expr:
+                    is_selected = True
+                if is_selected:
+                    expr_did_match = True
+                    if col not in matched_set:
+                        matched_set.add(col)
+                        matched.append(col)
+            if not expr_did_match:
+                raise CSVShowError(f"Expression \"{expr}\" did not match a column name")
+        return matched
+
+
+
 
 
 class ParseCommaSeparatedArgs(argparse.Action):

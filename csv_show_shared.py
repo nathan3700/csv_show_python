@@ -29,6 +29,13 @@ def string_is_number(str_in):
     return string_to_number(str_in) is not None
 
 
+def get_regex(string_input):
+    for regex_delimiter in ["/", "|"]:
+        if string_input[0] == regex_delimiter and string_input[len(string_input)-1] == regex_delimiter:
+            return string_input[1:len(string_input)-1]
+    return None
+
+
 class RowComparable:
     def __init__(self, row, sort_keys, detect_numbers=True):
         self.row = row

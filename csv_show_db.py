@@ -139,7 +139,7 @@ class CSVShowDB:
             matches_found = 0
             for x in range(len(criteria_column_names)):
                 col_name = criteria_column_names[x]
-                regex = self.get_regex(criteria[col_name])
+                regex = get_regex(criteria[col_name])
                 if regex and re.search(regex, row_data[criteria_col_numbers[x]], flags=regex_flags):
                     matches_found += 1
                 elif row_data[criteria_col_numbers[x]] == criteria[col_name]:
@@ -149,13 +149,6 @@ class CSVShowDB:
                 results_row_numbers.append(row_num)
             row_num += 1
         return results_rows, results_row_numbers
-
-    @staticmethod
-    def get_regex(string_input):
-        for regex_delimiter in ["/", "|"]:
-            if string_input[0] == regex_delimiter and string_input[len(string_input)-1] == regex_delimiter:
-                return string_input[1:len(string_input)-1]
-        return None
 
     def get_col_number(self, name):
         if name not in self.column_names:
