@@ -30,14 +30,15 @@ class CsvShow:
 
         # Do sort before lookup since sorting can affect first-lookup found
         if self.parsed_args.sort is not None:
-            self.db.sort(self.parsed_args.sort)
+            self.db.sort(self.parsed_args.sort, self.parsed_args.reverse)
 
+        self.db.regex_flags = self.regex_flags
         if len(self.parsed_args.lookup) > 0:
             values = self.get_lookup()
             print(", ".join(values))
         else:
             if len(self.parsed_args.select) > 0:
-                self.db = self.db.select(self.parsed_args.select, self.regex_flags)
+                self.db = self.db.select(self.parsed_args.select)
             self.apply_column_changes()
             if self.parsed_args.grep:
                 self.db = self.db.grep(self.parsed_args.grep, self.regex_flags)
@@ -74,15 +75,23 @@ class CsvShow:
                                  help="Indicates that the first row does not have column header names")
         self.parser.add_argument("-sort", action=ParseCommaSeparatedArgs, metavar="FIELD_LIST",
                                  help="Sort on these fields. " + explain_FIELD_LIST)
-        self.parser.add_argument("-select", action=ParseKVPairs, metavar="KEY=VALUE",
-                                 help="Select matching rows. (/regex/ allowed in VALUES)")
-        self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY=VALUE"),
+        self.parser.add_argument("-reverse", default=False, action="store_true",
+                                 help="Reverse the direction of -sort")
+        self.parser.add_argument("-select", action=ParseMatchSpec, metavar="KEY<op>VALUE",
+                                 help="Select matching rows. Supported <op>: " +
+                                      ParseMatchSpec.supported_relational_ops +
+                                      " Note: = and == both mean equality.  "
+                                      "=~ and !~ mean VALUE is a regular expression"
+                                 )
+        self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY<op>VALUE"),
                                  help="Lookup fields of first matching record. " + explain_FIELD_LIST +
-                                      ". /regex/ allowed in VALUES")
+                                      ". See -select for <op> explanation")
         self.parser.add_argument("-pre_grep", metavar="REGEX",
                                  help="Grep rows using space-separated data before any database modifications")
         self.parser.add_argument("-grep", metavar="REGEX",
                                  help="Grep rows after database modifications such as column reordering")
+        self.parser.add_argument("-match_case", default=False, action="store_true",
+                                 help="Regular expressions match on case (Default is IGNORECASE)")
         self.parser.add_argument("-max_width", action=ParseMaxWidthSpec, metavar=("[MAX_WIDTH]", "COLUMN_NAME=WIDTH"),
                                  help="Set the maximum column width globally, or on a per column basis. ")
         self.parser.add_argument("-columns", action=ParseCommaSeparatedArgs,
@@ -90,8 +99,6 @@ class CsvShow:
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
                                  help="Omit these columns. " + explain_FIELD_LIST, metavar="FIELD_LIST")
         self.parser.add_argument("-csv", default=False, action="store_true", help="Format output as CSV")
-        self.parser.add_argument("-match_case", default=False, action="store_true",
-                                 help="Regular expressions match on case (Default is IGNORECASE)")
 
     def parse_args(self, args):
         self.parsed_args = self.parser.parse_args(args)
@@ -191,9 +198,6 @@ class CsvShow:
         return matched
 
 
-
-
-
 class ParseCommaSeparatedArgs(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None or ("default" in kwargs and ["default"] is not None):
@@ -216,7 +220,10 @@ class ParseCommaSeparatedArgs(argparse.Action):
         setattr(namespace, self.dest, new_values)
 
 
-class ParseKVPairsBase(argparse.Action):
+class ParseActionBase(argparse.Action):
+    supported_relational_ops = '(=|==|!=|>|>=|<|<=|=~|!~)'
+    supported_relational_ops_re = r'(==|!=|>=|<=|=~|!~|=|>|<)'  # Single char ops need to be last to work
+
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         super().__init__(option_strings, dest, nargs, **kwargs)
         self.value_type = str
@@ -228,21 +235,28 @@ class ParseKVPairsBase(argparse.Action):
                 raise argparse.ArgumentError(self, f"This argument must be of the form key=value: \"{pair_string}\"")
             kv_pairs[kv[0]] = self.value_type(kv[1])
 
+    def add_new_relations(self, relations, new_relations):
+        for relation_str in new_relations:
+            relation = re.split(self.supported_relational_ops_re, relation_str, 1)
+            if len(relation) != 3:
+                raise argparse.ArgumentError(self, f"This argument must be of the form key<operator>value: \"{relation_str}\"")
+            relations.append(relation)
 
-class ParseKVPairs(ParseKVPairsBase):
+
+class ParseMatchSpec(ParseActionBase):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None or ("default" in kwargs and ["default"] is not None):
-            raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and {} respectively")
+            raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and [] respectively")
         nargs = "+"
-        kwargs["default"] = {}
+        kwargs["default"] = []
         super().__init__(option_strings, dest, nargs, **kwargs)
 
     def __call__(self, parser, namespace, new_values, option_string=None):
-        kv_pairs = getattr(namespace, self.dest)
-        self.add_new_pairs(kv_pairs, new_values)
+        relations = getattr(namespace, self.dest)
+        self.add_new_relations(relations, new_values)
 
 
-class ParseLookupSpec(ParseKVPairsBase):
+class ParseLookupSpec(ParseActionBase):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None or ("default" in kwargs and ["default"] is not None):
             raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and [] respectively")
@@ -252,19 +266,22 @@ class ParseLookupSpec(ParseKVPairsBase):
 
     def __call__(self, parser, namespace, new_values, option_string=None):
         fields = getattr(namespace, self.dest)
-        if not hasattr(namespace, "lookup_spec"):
-            setattr(namespace, "lookup_spec", {})
-        kv_pairs = getattr(namespace, "lookup_spec")
-        if len(fields) == 0:  # The first value is a comma separated lis of chosen fields
-            if "=" in new_values[0]:
-                raise(argparse.ArgumentTypeError(
-                    "The first value for this argument should be a field list, not be a key=value pair"))
+        if not hasattr(namespace, f"{self.dest}_spec"):
+            setattr(namespace, f"{self.dest}_spec", [])
+        relations = getattr(namespace, f"{self.dest}_spec")
+        if len(fields) == 0:  # The first value is a comma separated list of chosen fields
+            for op in self.supported_relational_ops:
+                if op in new_values[0]:
+                    raise(argparse.ArgumentTypeError(
+                        "The first value for this argument should be a field list, not be a key<operator>value pair"))
             fields += new_values[0].split(",")
             new_values.pop(0)
-        self.add_new_pairs(kv_pairs, new_values)
+            self.add_new_relations(relations, new_values)
+        else:
+            raise(argparse.ArgumentTypeError(f"Please use {self.option_strings} only once"))
 
 
-class ParseMaxWidthSpec(ParseKVPairsBase):
+class ParseMaxWidthSpec(ParseActionBase):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None or ("default" in kwargs and ["default"] is not None):
             raise ValueError("nargs and default cannot be changed.  Will always use \"+\" and {None: None} respectively")

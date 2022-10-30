@@ -45,7 +45,8 @@ class ShowCSVTests(unittest.TestCase):
             "|Ford |Explorer  |2003|",
             "|Ford |Windstar  |1996|",
             "|GMC  |Safari    |2002|",
-            "|Tesla|Model S   |2015|"
+            "|Tesla|Model S   |2015|",
+            "|Roman|Chariot   |300 |"
         ]
         self.assertEqual(expected_output, lines)
 
@@ -70,14 +71,16 @@ class ShowCSVTests(unittest.TestCase):
     def test_select_arguments(self):
         self.ui.parse_args(["some.csv"])
         self.assertIn("select", self.ui.parsed_args)
-        self.assertEqual(self.ui.parsed_args.select, {})
+        self.assertEqual(self.ui.parsed_args.select, [])
         self.ui.parse_args("some.csv -select name=bob".split())
-        self.assertEqual(self.ui.parsed_args.select, {"name": "bob"})
+        self.assertEqual(self.ui.parsed_args.select, [["name", "=", "bob"]])
         # Multiple use
+        self.ui.make_arg_parser()
         self.ui.parse_args("some.csv -select name=bob -select age=33".split())
-        self.assertEqual(self.ui.parsed_args.select, {"name": "bob", "age": "33"})
+        self.assertEqual(self.ui.parsed_args.select, [["name", "=", "bob"], ["age", "=", "33"]])
+        self.ui.make_arg_parser()
         self.ui.parse_args("some.csv -select name=bob age=33".split())
-        self.assertEqual(self.ui.parsed_args.select, {"name": "bob", "age": "33"})
+        self.assertEqual(self.ui.parsed_args.select, [["name", "=", "bob"], ["age", "=", "33"]])
 
     def test_select(self):
         def block():
@@ -96,12 +99,13 @@ class ShowCSVTests(unittest.TestCase):
         self.ui.parse_args("some.csv -lookup age name=bob".split())
         self.assertIn("lookup_spec", self.ui.parsed_args)
         self.assertEqual(self.ui.parsed_args.lookup, ["age"])
-        self.assertEqual(self.ui.parsed_args.lookup_spec, {"name": "bob"})
+        self.assertEqual(self.ui.parsed_args.lookup_spec, [["name", "=", "bob"]])
         # Multiple use
         self.ui.make_arg_parser()
-        self.ui.parse_args("some.csv -lookup age name=bob age=33 -lookup w=5 h=20".split())
+        self.ui.parse_args("some.csv -lookup age name=bob age=33 w=5 h=20".split())
         self.assertEqual(self.ui.parsed_args.lookup, ["age"])
-        self.assertEqual(self.ui.parsed_args.lookup_spec, {"name": "bob", "age": "33", "w": "5", "h": "20"})
+        self.assertEqual(self.ui.parsed_args.lookup_spec,
+                         [["name", "=", "bob"], ["age", "=", "33"], ["w", "=", "5"], ["h", "=", "20"]])
         # First argument is a key value but should be a field list
         self.ui.make_arg_parser()
         took_exception = False
@@ -210,7 +214,8 @@ class ShowCSVTests(unittest.TestCase):
             "|Ford |Expl*|20*|",
             "|Ford |Wind*|19*|",
             "|GMC  |Safa*|20*|",
-            "|Tesla|Mode*|20*|"
+            "|Tesla|Mode*|20*|",
+            "|Roman|Char*|300|"
         ]
         self.assertEqual(expected_output, lines)
 

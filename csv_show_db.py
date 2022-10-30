@@ -13,6 +13,7 @@ class CSVShowDB:
         self.set_column_names(column_names)
         if new_db is not None:
             self.add_rows(new_db)
+        self.regex_flags = 0
 
     def __iter__(self):
         self.__curr_row = 0
@@ -30,6 +31,9 @@ class CSVShowDB:
 
     def __repr__(self):
         return f"Header: {self.column_names}\nData: {self.rows}"
+
+    def __len__(self):
+        return len(self.rows)
 
     def clear(self):
         self.column_names.clear()
@@ -117,34 +121,42 @@ class CSVShowDB:
         else:
             return self.get_row(row_numbers[0])
 
-    def select(self, criteria, regex_flags=0):
-        rows, row_numbers = self.select_rows_and_row_numbers(criteria, regex_flags)
+    def select(self, criteria):
+        rows, row_numbers = self.select_rows_and_row_numbers(criteria)
         new_db = CSVShowDB(rows, self.column_names)
         return new_db
 
-    def select_rows_and_row_numbers(self, criteria, regex_flags=0):
-        # Unpack the criteria from a dictionary to these lists
-        criteria_column_names = []
-        criteria_col_numbers = []
+    def select_rows_and_row_numbers(self, criteria):
         results_rows = []
         results_row_numbers = []
 
-        for col_name in criteria.keys():
-            criteria_column_names.append(col_name)
-            criteria_col_numbers.append(self.get_col_number(col_name))
-
-        # Find the row where all match values are found
+        # Find the rows where all match values are found
         row_num = 0
         for row_data in self.rows:
             matches_found = 0
-            for x in range(len(criteria_column_names)):
-                col_name = criteria_column_names[x]
-                regex = get_regex(criteria[col_name])
-                if regex and re.search(regex, row_data[criteria_col_numbers[x]], flags=regex_flags):
-                    matches_found += 1
-                elif row_data[criteria_col_numbers[x]] == criteria[col_name]:
-                    matches_found += 1
-            if matches_found == len(criteria_column_names):
+            for relation in criteria:
+                # Relations are of the form [name, operator, value]
+                col_name = relation[0]
+                col_num = self.get_col_number(col_name)
+                op = relation[1]
+                if op == "=":  # Be flexible and let user use = instead of ==
+                    op = "=="
+                value = relation[2]
+                data = row_data[col_num]
+
+                if op == "=~":
+                    if re.search(value, data, flags=self.regex_flags):
+                        matches_found += 1
+                elif op == "!~":
+                    if not re.search(value, data, flags=self.regex_flags):
+                        matches_found += 1
+                else:
+                    if string_is_number(value) and string_is_number(data):
+                        value = string_to_number(value)
+                        data = string_to_number(data)
+                    if eval(f"data {op} value"):
+                        matches_found += 1
+            if matches_found == len(criteria):
                 results_rows.append(row_data)
                 results_row_numbers.append(row_num)
             row_num += 1
@@ -155,7 +167,9 @@ class CSVShowDB:
             raise CSVShowError(f"Column name not found: {name}")
         return self.column_number_by_name[name]
 
-    def grep(self, regex, regex_flags=0):
+    def grep(self, regex, regex_flags=None):
+        if regex_flags is None:
+            regex_flags = self.regex_flags
         new_rows = []
         for row in self.rows:
             if re.search(regex, " ".join(row), regex_flags):

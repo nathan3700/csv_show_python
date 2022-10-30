@@ -9,7 +9,7 @@ class ShowCSVDBTests(unittest.TestCase):
 
     def setUPDefaultData(self):
         self.db.set_column_names(["Name", "Age", "Height"])
-        self.db.add_rows([["Tom", "25", "5 feet"],
+        self.db.add_rows([["Tom", "6", "5 feet"],
                           ["Ella", "30", "4.5 feet"],
                           ["Richard", "50", "6 feet"],
                           ["Katy", "50", "5 feet"]
@@ -105,28 +105,28 @@ class ShowCSVDBTests(unittest.TestCase):
 
     def test_look_up_row(self):
         self.setUPDefaultData()
-        row = self.db.lookup_row({"Name": "Ella"})
+        row = self.db.lookup_row([["Name", "=", "Ella"]])
         self.assertEqual(row, ["Ella", "30", "4.5 feet"])
         self.db.rows_as_records = True
-        record = self.db.lookup_row({"Name": "Ella"})
+        record = self.db.lookup_row([["Name", "=", "Ella"]])
         self.assertEqual(record, {"Name": "Ella", "Age": "30", "Height": "4.5 feet"})
 
     def test_look_up_item(self):
         self.setUPDefaultData()
-        item = self.db.lookup_item("Age", {"Name": "Ella"})
+        item = self.db.lookup_item("Age", [["Name", "=", "Ella"]])
         self.assertEqual(item, "30")
 
     def test_look_up_item_multi_criteria(self):
         self.setUPDefaultData()
         self.db.add_row(["Ella", "25", "72 inches"])  # Add a row that can false match if only one criterion used
-        item = self.db.lookup_item("Height", {"Name": "Ella", "Age": "25"})
+        item = self.db.lookup_item("Height", [["Name", "=", "Ella"], ["Age", "=", "25"]])
         self.assertEqual(item, "72 inches")
 
     def test_lookup_not_found(self):
         self.setUPDefaultData()
         caught_exception = False
         try:
-            item = self.db.lookup_item("Height", {"Name": "Denise"}, fail_if_not_found=True)
+            item = self.db.lookup_item("Height", [["Name", "=", "Denise"]], fail_if_not_found=True)
         except CSVShowError as e:
             caught_exception = True
             self.assertIn("did not yield a match", e.args[0])
@@ -134,22 +134,35 @@ class ShowCSVDBTests(unittest.TestCase):
 
     def test_look_up_item_regex(self):
         self.setUPDefaultData()
-        item = self.db.lookup_item("Age", {"Name": "/.*E.*/"})
+        item = self.db.lookup_item("Age", [["Name", "=~", ".*E.*"]])
         self.assertEqual("30", item)
-        item = self.db.lookup_item("Age", {"Name": "|.*a|", "Age": "|5|"}, fail_if_not_found=True)
+        item = self.db.lookup_item("Age", [["Name", "=~", ".*a"], ["Age", "=~", "5"]], fail_if_not_found=True)
         self.assertEqual("50", item)
+        item = self.db.lookup_item("Name", [["Name", "!~", "a"]])
+        self.assertEqual("Tom", item)
 
     def test_select(self):
         self.setUPDefaultData()
-        result_db = self.db.select({"Age": "50"})
+        result_db = self.db.select([["Age", "=", "50"]])
         expected = CSVShowDB(
             [["Richard", "50", "6 feet"],
              ["Katy", "50", "5 feet"]], self.db.column_names)
-        self.assertEqual(type(result_db), type(self.db))
-        self.assertEqual(expected.rows, result_db.rows)
-        result_db = self.db.select({"Age": "50", "Name": "Katy"})
+        self.assertEqual(expected, result_db)
+        result_db = self.db.select([["Age", "=", "50"], ["Name", "=", "Katy"]])
         expected = CSVShowDB([["Katy", "50", "5 feet"]], self.db.column_names)
-        self.assertEqual(expected.rows, result_db.rows)
+        self.assertEqual(expected, result_db)
+
+    def test_select_ops(self):
+        self.setUPDefaultData()
+        result_db = self.db.select([["Age", ">", "30"]])
+        expected = CSVShowDB(
+            [["Richard", "50", "6 feet"],
+             ["Katy", "50", "5 feet"]], self.db.column_names)
+        self.assertEqual(expected, result_db)
+        result_db = self.db.select([["Age", ">=", "30"]])
+        self.assertEqual(3, len(result_db))
+        result_db = self.db.select([["Age", "!=", "50"]])
+        self.assertEqual(2, len(result_db))
 
     def test_grep(self):
         self.setUPDefaultData()
@@ -166,17 +179,17 @@ class ShowCSVDBTests(unittest.TestCase):
         self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "", "CC1"]], self.db.rows)
         self.db.update_data_at_row("ItemB", 1, "BB1")  # By row and name
         self.assertEqual([["AA0", "BB0", "CC0"], ["AA1", "BB1", "CC1"]], self.db.rows)
-        criteria = {"ItemB": "/BB/"}
+        criteria = [["ItemB", "=~", "BB"]]
         self.db.update_data("ItemB", "UpdatedBB", criteria)  # Picks rows using criteria dictionary (see lookup)
         self.assertEqual([["AA0", "UpdatedBB", "CC0"], ["AA1", "UpdatedBB", "CC1"]], self.db.rows)
-        criteria = {"ItemB": "/.*BB/", "ItemA": "AA1"}  # More specific to hit one row only
+        criteria = [["ItemB", "=~", ".*BB"], ["ItemA", "=", "AA1"]]  # More specific to hit one row only
         self.db.update_data("ItemB", "Deleted", criteria)
         self.assertEqual([["AA0", "UpdatedBB", "CC0"], ["AA1", "Deleted", "CC1"]], self.db.rows)
 
     def test_row_to_dictionary(self):
         self.setUPDefaultData()
         record = self.db.row_to_record(self.db.rows[0])
-        self.assertEqual({"Name": "Tom", "Age": "25", "Height": "5 feet"}, record)
+        self.assertEqual({"Name": "Tom", "Age": "6", "Height": "5 feet"}, record)
 
     def test_iterable(self):
         self.setUPDefaultData()
@@ -191,13 +204,13 @@ class ShowCSVDBTests(unittest.TestCase):
     def test_sort1(self):
         self.setUPDefaultData()
         expected = [["Ella", "30", "4.5 feet"],
-                    ["Tom", "25", "5 feet"],
+                    ["Tom", "6", "5 feet"],
                     ["Katy", "50", "5 feet"],
                     ["Richard", "50", "6 feet"]
                     ]
         self.db.sort(["Height"])
         self.assertEqual(expected, self.db.rows)
-        expected = [["Tom", "25", "5 feet"],
+        expected = [["Tom", "6", "5 feet"],
                     ["Ella", "30", "4.5 feet"],
                     ["Katy", "50", "5 feet"],
                     ["Richard", "50", "6 feet"]
@@ -253,7 +266,7 @@ class ShowCSVDBTests(unittest.TestCase):
         self.assertEqual(expected, self.db.select_columns(["Name"]))
 
         expected = CSVShowDB([
-            ["25", "Tom"],
+            ["6", "Tom"],
             ["30", "Ella"],
             ["50", "Richard"],
             ["50", "Katy"]
