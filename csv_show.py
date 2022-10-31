@@ -11,7 +11,8 @@ import os
 import subprocess
 
 
-
+if not csv_show_version.version_check():
+    raise Exception(f"This script requires python 3.6 or later")
 
 
 class CsvShow:
