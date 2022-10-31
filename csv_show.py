@@ -8,6 +8,7 @@ import argparse
 import csv
 import sys
 import os
+import subprocess
 
 
 class CsvShow:
@@ -21,8 +22,10 @@ class CsvShow:
         self.regex_flags = re.IGNORECASE
         self.removed_columns = set()
 
+        self.tty_columns = CsvShow.get_tty_columns()
+        self.tty_lines = CsvShow.get_tty_lines()
+
     def main(self, args):
-        self.fix_screen_width()
         self.make_arg_parser()
         self.parse_args(args)
         self.read_db(self.parsed_args.csv_file)
@@ -52,15 +55,26 @@ class CsvShow:
 
             if self.parsed_args.csv:
                 output = self.formatter.format_output_as_csv()
-                print(output, end="")
             else:
-                output = self.formatter.format_output()
-                print(output)
+                output = self.formatter.format_output_as_lines()
+
+            self.print_formatted_db(output)
 
     @staticmethod
-    def fix_screen_width():
-        if 'COLUMNS' not in os.environ:
-            os.environ['COLUMNS'] = "120"
+    def get_tty_columns():
+        default = 120
+        if 'COLUMNS' in os.environ:
+            return string_to_number(os.environ['COLUMNS']) or default
+        else:
+            return default
+
+    @staticmethod
+    def get_tty_lines():
+        default = 30
+        if 'LINES' in os.environ:
+            return string_to_number(os.environ['LINES']) or default
+        else:
+            return default
 
     def make_arg_parser(self):
         # noinspection PyPep8Naming
@@ -68,7 +82,7 @@ class CsvShow:
         self.parser = argparse.ArgumentParser(add_help=False)
         self.parser.add_argument("-help", "-h", action="help", default=argparse.SUPPRESS,
                                  help='Show this help message and exit.')
-        self.parser.add_argument("csv_file", help="CSV file to be viewed")
+        self.parser.add_argument("csv_file", help="CSV file to be viewed.  Use \"-\" to indicate STDIN")
         self.parser.add_argument("-sep", default=",", help="Separator used for input data. "
                                                            "Popular values: ',' (Default), '\\t', ' ', and 'guess'")
         self.parser.add_argument("-noheader", action="store_true", default=False,
@@ -99,6 +113,8 @@ class CsvShow:
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
                                  help="Omit these columns. " + explain_FIELD_LIST, metavar="FIELD_LIST")
         self.parser.add_argument("-csv", default=False, action="store_true", help="Format output as CSV")
+        self.parser.add_argument("-less", default=False, action="store_true", help="Pipe to less")
+        self.parser.add_argument("-noless", default=False, action="store_true", help="Disable pipe to less")
 
     def parse_args(self, args):
         self.parsed_args = self.parser.parse_args(args)
@@ -127,7 +143,10 @@ class CsvShow:
 
     def read_db(self, file):
         self.db.clear()
-        file_handle = open(file)
+        if file == "-":
+            file_handle = sys.stdin
+        else:
+            file_handle = open(file)
         reader = csv.reader(file_handle, dialect=self.dialect)
         if self.has_header:
             column_names = reader.__next__()
@@ -196,6 +215,37 @@ class CsvShow:
             if not expr_did_match:
                 raise CSVShowError(f"Expression \"{expr}\" did not match a column name")
         return matched
+
+    def print_formatted_db(self, output):
+        is_tty = sys.stdout.isatty()
+        has_less = CsvShow.get_has_less()
+        fits_in_tty_window = ((len(self.db) + 2 <= self.tty_lines)
+                              and (len(output) == 0 or (len(output[0]) <= self.tty_columns))
+                              )
+        if (self.parsed_args.less or
+                (not self.parsed_args.noless and is_tty and has_less and not fits_in_tty_window)):
+            proc = subprocess.run("less -S", input="\n".join(output), text=True, shell=True)
+        else:
+            self.print_all_lines(output)
+
+    @staticmethod
+    def print_all_lines(output):
+        try:
+            last_index = len(output) - 1
+            for line_num in range(len(output)):
+                line = output[line_num]
+                if line_num != last_index:
+                    print(line, )
+                else:
+                    print(line, end="")
+        except BrokenPipeError as e:
+            pass  # Okay: The user piped to another program which didn't consume all the output
+
+    @staticmethod
+    def get_has_less():
+        result = subprocess.run("less --version", shell=True, capture_output=True)
+        has_less = result.returncode == 0
+        return has_less
 
 
 class ParseCommaSeparatedArgs(argparse.Action):

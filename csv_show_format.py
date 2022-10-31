@@ -11,43 +11,32 @@ class CsvPrintFormatter:
         self.db = CSVShowDB()
         self.has_header = True
         self.column_numbers_by_name = collections.OrderedDict()
+        self.longest_by_col = []
 
     def set_db(self, db: CSVShowDB):
         self.db = db
 
-    def format_output(self):
-        output = ''
-        longest = self.find_longest_column_widths()
+    def format_output_as_string(self):
+        return "\n".join(self.format_output_as_lines())
+
+    def format_output_as_lines(self):
+        output = []
+        self.find_longest_column_widths()
 
         if self.has_header:
-            output += self.format_row(self.db.column_names, longest)
-            output += "\n"
-            output += self.format_row(["-" * x for x in longest], longest)
-            if len(self.db.rows) > 0:
-                output += "\n"
+            output.append(self.format_row(self.db.column_names, self.longest_by_col))
+            output.append(self.format_row(["-" * x for x in self.longest_by_col], self.longest_by_col))
 
-        last_index = len(self.db.rows) - 1
-        for row_index in range(len(self.db.rows)):
-            row = self.db.rows[row_index]
-            formatted_row = self.format_row(row, longest)
-            output += formatted_row
-            if row_index != last_index:
-                output += "\n"
-
+        for row in self.db.rows:
+            output.append(self.format_row(row, self.longest_by_col))
         return output
 
     def format_output_as_csv(self):
-        output = ''
+        output = []
         if self.has_header:
-            output += ",".join(self.db.column_names)
-            if len(self.db.rows) > 0:
-                output += "\n"
-        last_index = len(self.db.rows) - 1
-        for row_index in range(len(self.db.rows)):
-            row = self.db.rows[row_index]
-            output += ",".join(row)
-            if row_index != last_index:
-                output += "\n"
+            output.append(",".join(self.db.column_names))
+        for row in self.db.rows:
+            output.append(",".join(row))
         return output
 
     @classmethod
@@ -68,23 +57,14 @@ class CsvPrintFormatter:
         return row_str
 
     def find_longest_column_widths(self):
-        longest = []
+        self.longest_by_col = []
         rows_including_header = [self.db.column_names] + self.db.rows
         for row in rows_including_header:
             for col_num in range(len(row)):
                 col_width = len(row[col_num])
-                self.update_longest_by_col_num(longest, col_width, col_num)
                 self.update_width_histograms(col_num, col_width)
-
-        self.apply_width_caps(longest)
-        return longest
-
-    @staticmethod
-    def update_longest_by_col_num(longest, col_width, col_num):
-        if len(longest) <= col_num:
-            longest.append(0)
-        if col_width > longest[col_num]:
-            longest[col_num] = col_width
+                self.update_longest_by_col_num(col_num, col_width)
+        self.apply_width_caps()
 
     def update_width_histograms(self, col_num, col_width):
         col_name = self.db.column_names[col_num]
@@ -94,9 +74,15 @@ class CsvPrintFormatter:
             self.width_histograms[col_name][col_width] = 0
         self.width_histograms[col_name][col_width] += 1
 
-    def apply_width_caps(self, longest):
+    def update_longest_by_col_num(self, col_num, col_width):
+        if len(self.longest_by_col) <= col_num:
+            self.longest_by_col.append(0)
+        if col_width > self.longest_by_col[col_num]:
+            self.longest_by_col[col_num] = col_width
+
+    def apply_width_caps(self):
         for col_name in self.max_width_by_name.keys():
             col_num = self.db.get_col_number(col_name)
-            if longest[col_num] > self.max_width_by_name[col_name]:
-                longest[col_num] = self.max_width_by_name[col_name]
+            if self.longest_by_col[col_num] > self.max_width_by_name[col_name]:
+                self.longest_by_col[col_num] = self.max_width_by_name[col_name]
 

@@ -10,21 +10,21 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
         db = CSVShowDB([])
         self.show.set_db(db)
         self.show.has_header = False
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual(result, "")
 
     def test_show_one_line_db(self):
         db = CSVShowDB([["item1", "item2"]])
         self.show.set_db(db)
         self.show.has_header = False
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual(result, "|item1|item2|")
 
     def test_show_two_line_db_no_header(self):
         db = CSVShowDB([["itemA1", "itemB1"], ["itemA2", "itemB2"]])
         self.show.has_header = False
         self.show.set_db(db)
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual(result,
                          "|itemA1|itemB1|\n" +
                          "|itemA2|itemB2|"
@@ -34,7 +34,7 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
         rows = [["itemA1", "itemB1"]]
         db = CSVShowDB(rows, ["headA ", "headB "])
         self.show.set_db(db)
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual(result,
                          "|headA |headB |\n" +
                          "|------|------|\n" +
@@ -45,14 +45,14 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
         db = CSVShowDB([["itemA1", "itemB1"], ["long_itemA2", "longer_itemB2"]])
         self.show.set_db(db)
         self.show.has_header = False
-        longest_widths = self.show.find_longest_column_widths()
-        self.assertEqual(longest_widths, [11, 13])
+        self.show.find_longest_column_widths()
+        self.assertEqual(self.show.longest_by_col, [11, 13])
 
     def test_show_variable_data_len1(self):
         db = CSVShowDB([["itemA1", "itemB1"], ["long_itemA2", "longer_itemB2"]])
         self.show.has_header = False
         self.show.set_db(db)
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual(result,
                          "|itemA1     |itemB1       |\n" +
                          "|long_itemA2|longer_itemB2|"
@@ -87,10 +87,10 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
         self.show.set_db(db)
         self.show.max_width_by_name["Name"] = 9
         self.show.max_width_by_name["Quantity"] = 8
-        longest_widths = self.show.find_longest_column_widths()
-        self.assertEqual(longest_widths, [9, 8])
+        self.show.find_longest_column_widths()
+        self.assertEqual(self.show.longest_by_col, [9, 8])
         # Now test the final output string
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual("|Name     |Quantity|\n" +
                          "|---------|--------|\n" +
                          "|Fork     |2       |\n" +
@@ -108,7 +108,7 @@ class ShowCSVPrintFormatterTests(unittest.TestCase):
         self.show.max_width_by_name["Quantity"] = 7
         longest_widths = self.show.find_longest_column_widths()
         # Now test the final output string
-        result = self.show.format_output()
+        result = self.show.format_output_as_string()
         self.assertEqual("|Name |Quanti*|\n" +
                          "|-----|-------|\n" +
                          "|Fork |2      |\n" +
