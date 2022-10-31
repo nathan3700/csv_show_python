@@ -1,6 +1,6 @@
 #!/bin/env python
 import re
-
+import csv_show_version
 from csv_show_format import CsvPrintFormatter
 from csv_show_db import CSVShowDB
 from csv_show_shared import *
@@ -9,6 +9,9 @@ import csv
 import sys
 import os
 import subprocess
+
+
+
 
 
 class CsvShow:
@@ -29,6 +32,8 @@ class CsvShow:
         self.make_arg_parser()
         self.user_add_args()
         self.parse_args(args)
+        if self.parsed_args.version:
+            self.display_version_and_exit()
         self.read_db(self.parsed_args.csv_file)
         self.match_column_args_to_column_names()
 
@@ -119,6 +124,7 @@ class CsvShow:
         self.parser.add_argument("-csv", default=False, action="store_true", help="Format output as CSV")
         self.parser.add_argument("-less", default=False, action="store_true", help="Pipe to less")
         self.parser.add_argument("-noless", default=False, action="store_true", help="Disable pipe to less")
+        self.parser.add_argument("-version", default=False, action="store_true", help="Display version and exit")
 
     def user_add_args(self):
         pass
@@ -147,6 +153,11 @@ class CsvShow:
     def apply_regex_flags(self):
         if self.parsed_args.match_case:
             self.regex_flags = 0
+
+    @classmethod
+    def display_version_and_exit(cls):
+        print(f"version: {csv_show_version.version}")
+        exit(0)
 
     def read_db(self, file):
         self.db.clear()
