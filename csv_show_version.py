@@ -18,6 +18,3 @@ def version_check():
     return ok
 
 
-if not version_check():
-    raise Exception("This script requires python 3.6 or later")
-
