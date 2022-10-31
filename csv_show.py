@@ -25,8 +25,9 @@ class CsvShow:
         self.tty_columns = CsvShow.get_tty_columns()
         self.tty_lines = CsvShow.get_tty_lines()
 
-    def main(self, args):
+    def show(self, args):
         self.make_arg_parser()
+        self.user_add_args()
         self.parse_args(args)
         self.read_db(self.parsed_args.csv_file)
         self.match_column_args_to_column_names()
@@ -40,11 +41,14 @@ class CsvShow:
             values = self.get_lookup()
             print(", ".join(values))
         else:
+            self.user_modify_db()
             if len(self.parsed_args.select) > 0:
                 self.db = self.db.select(self.parsed_args.select)
             self.apply_column_changes()
             if self.parsed_args.grep:
                 self.db = self.db.grep(self.parsed_args.grep, self.regex_flags)
+            self.user_modify_db_post_select()
+
             self.formatter.set_db(self.db)
             if self.parsed_args.max_width[None] is not None:
                 for column_name in self.db.column_names:
@@ -116,6 +120,9 @@ class CsvShow:
         self.parser.add_argument("-less", default=False, action="store_true", help="Pipe to less")
         self.parser.add_argument("-noless", default=False, action="store_true", help="Disable pipe to less")
 
+    def user_add_args(self):
+        pass
+
     def parse_args(self, args):
         self.parsed_args = self.parser.parse_args(args)
         self.apply_sep_to_dialect()
@@ -171,30 +178,6 @@ class CsvShow:
         if self.parsed_args.lookup:
             self.parsed_args.lookup = self.get_matching_columns(self.parsed_args.lookup)
 
-    def get_lookup(self):
-        lookup_row = self.db.lookup_row(self.parsed_args.lookup_spec)
-        if lookup_row is None:
-            raise CSVShowError("Lookup failed. Lookup spec: " + str(self.parsed_args.lookup_spec))
-        rec = self.db.row_to_record(lookup_row)
-        values = []
-        for field in self.parsed_args.lookup:
-            values.append(rec[field])
-        return values
-
-    def apply_column_changes(self):
-        if self.parsed_args.columns is not None or self.parsed_args.nocolumns is not None:
-            nocolumns = self.parsed_args.nocolumns or []
-            selected_columns = self.parsed_args.columns or self.db.column_names
-            selected_columns = [column for column in selected_columns if column not in nocolumns]
-            orig = set(self.db.column_names)
-            sel = set(selected_columns)
-            self.removed_columns = orig - sel
-
-            try:
-                self.db = self.db.select_columns(selected_columns)
-            except KeyError:
-                raise CSVShowError(f"Invalid column name")
-
     def get_matching_columns(self, column_expressions):
         matched_set = set()
         matched = []
@@ -215,6 +198,36 @@ class CsvShow:
             if not expr_did_match:
                 raise CSVShowError(f"Expression \"{expr}\" did not match a column name")
         return matched
+
+    def get_lookup(self):
+        lookup_row = self.db.lookup_row(self.parsed_args.lookup_spec)
+        if lookup_row is None:
+            raise CSVShowError("Lookup failed. Lookup spec: " + str(self.parsed_args.lookup_spec))
+        rec = self.db.row_to_record(lookup_row)
+        values = []
+        for field in self.parsed_args.lookup:
+            values.append(rec[field])
+        return values
+
+
+    def user_modify_db(self):
+        pass
+    def user_modify_db_post_select(self):
+        pass
+
+    def apply_column_changes(self):
+        if self.parsed_args.columns is not None or self.parsed_args.nocolumns is not None:
+            nocolumns = self.parsed_args.nocolumns or []
+            selected_columns = self.parsed_args.columns or self.db.column_names
+            selected_columns = [column for column in selected_columns if column not in nocolumns]
+            orig = set(self.db.column_names)
+            sel = set(selected_columns)
+            self.removed_columns = orig - sel
+
+            try:
+                self.db = self.db.select_columns(selected_columns)
+            except KeyError:
+                raise CSVShowError(f"Invalid column name")
 
     def print_formatted_db(self, output):
         is_tty = sys.stdout.isatty()
@@ -361,6 +374,6 @@ class ParseMaxWidthSpec(ParseActionBase):
 
 if __name__ == "__main__":
     show = CsvShow()
-    show.main(sys.argv[1:])
+    show.show(sys.argv[1:])
 
 

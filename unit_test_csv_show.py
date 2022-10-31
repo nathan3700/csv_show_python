@@ -7,6 +7,7 @@ from csv_show import *
 from textwrap import dedent
 import argparse
 
+
 class ShowCSVTests(unittest.TestCase):
     def setUp(self):
         self.dir = os.path.dirname(__file__)
@@ -35,7 +36,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_can_run_program(self):
         def block():
-            self.ui.main([self.dir + "/data/cars.csv"])
+            self.ui.show([self.dir + "/data/cars.csv"])
         lines = self.capture_block_output(block)
         expected_output = [
             "|Make |Model     |Year|",
@@ -84,7 +85,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_select(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -select Make=GMC").split())
+            self.ui.show((self.dir + "/data/cars.csv -select Make=GMC").split())
         lines = self.capture_block_output(block)
         expected = dedent("""\
         |Make|Model |Year|
@@ -118,14 +119,14 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_lookup(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -lookup Make,Year Make=Ford Year=1996 Model=Windstar").split())
+            self.ui.show((self.dir + "/data/cars.csv -lookup Make,Year Make=Ford Year=1996 Model=Windstar").split())
         output = self.capture_block_output(block)
         self.assertEqual(len(output), 1)
         self.assertEqual(output[0], "Ford, 1996")
 
     def test_lookup_not_found(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -lookup Make Make=Ford Year=1966").split())
+            self.ui.show((self.dir + "/data/cars.csv -lookup Make Make=Ford Year=1966").split())
         exception_taken = False
         try:
             output = self.capture_block_output(block)
@@ -142,7 +143,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_pre_grep(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -pre_grep ford.*2.*").split())
+            self.ui.show((self.dir + "/data/cars.csv -pre_grep ford.*2.*").split())
 
         lines = self.capture_block_output(block)
         self.assertEqual(
@@ -156,7 +157,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_post_grep(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -columns Year,Make -grep 2.*ford").split())
+            self.ui.show((self.dir + "/data/cars.csv -columns Year,Make -grep 2.*ford").split())
 
         lines = self.capture_block_output(block)
         self.assertEqual(
@@ -204,7 +205,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_user_set_max_width(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -max_width 5 Year=3").split())
+            self.ui.show((self.dir + "/data/cars.csv -max_width 5 Year=3").split())
         lines = self.capture_block_output(block)
         expected_output = [
             "|Make |Model|Ye*|",
@@ -248,7 +249,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_format_output_as_csv(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -csv").split())
+            self.ui.show((self.dir + "/data/cars.csv -csv").split())
         output = "\n".join(self.capture_block_output(block))
 
         fh = open(self.dir + "/data/cars.csv")
@@ -268,7 +269,7 @@ class ShowCSVTests(unittest.TestCase):
 
     def test_see_final_output(self):
         def block():
-            self.ui.main((self.dir + "/data/cars.csv -sort").split())
+            self.ui.show((self.dir + "/data/cars.csv -sort").split())
         output = self.capture_block_output(block)
         #print("\n".join(output))
 
@@ -279,6 +280,31 @@ class ShowCSVTests(unittest.TestCase):
         self.ui.read_db(self.ui.parsed_args.csv_file)
         self.ui.parse_args((self.dir + "/data/cars.tsv -sep guess").split())
         self.ui.read_db(self.ui.parsed_args.csv_file)
+
+    def test_user_can_modify_db(self):
+        class UserShow(CsvShow):
+            def user_add_args(self):
+                self.parser.add_argument("-hex", default=False, action="store_true", help="Show numbers as hexadecimal")
+                self.parser.add_argument("-add_Model_prefix", default=False, action="store_true",
+                                         help="Prepend model with the prefix \"model:\"")
+
+            def user_modify_db(self):
+                year_col_num = self.db.column_number_by_name["Year"]
+                for row in self.db.rows:
+                    row[year_col_num] = hex(string_to_number(row[year_col_num]))
+
+            def user_modify_db_post_select(self):
+                model_col_num = self.db.column_number_by_name["Model"]
+                for row in self.db.rows:
+                    row[model_col_num] = "model:" + row[model_col_num]
+
+        user_shower = UserShow()
+        def block():
+            user_shower.show((self.dir + "/data/cars.csv -hex").split())
+
+        output = self.capture_block_output(block)
+        #print("\n".join(output))
+
 
 if __name__ == '__main__':
     unittest.main()
