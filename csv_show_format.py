@@ -50,7 +50,8 @@ class CsvPrintFormatter:
             if len(data) > width:  # Remove a character to make room for truncation indicator
                 width -= 1
             fmt = "{item:" + f"{width}" + "." + f"{width}" "}"
-            row_str += fmt.format(item=data)
+            if width > 0:
+                row_str += fmt.format(item=data)
             if len(data) > width:  # Indicate truncation to the user with a "*"
                 row_str += "*"
             row_str += "|"
