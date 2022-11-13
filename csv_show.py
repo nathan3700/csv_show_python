@@ -17,6 +17,7 @@ if not csv_show_version.version_check():
 
 class CsvShow:
     def __init__(self):
+        self.program_description = "A CSV Viewer with format control and query features."
         self.db = CSVShowDB()
         self.formatter = CsvPrintFormatter()
         self.has_header = True
@@ -87,7 +88,7 @@ class CsvShow:
     def make_arg_parser(self):
         # noinspection PyPep8Naming
         explain_FIELD_LIST = "FIELD_LIST is comma separated with /regex/ allowed"
-        self.parser = argparse.ArgumentParser(add_help=False)
+        self.parser = argparse.ArgumentParser(add_help=False, description=self.program_description)
         self.parser.add_argument("-help", "-h", action="help", default=argparse.SUPPRESS,
                                  help='Show this help message and exit.')
         self.parser.add_argument("csv_file", help="CSV file to be viewed.  Use \"-\" to indicate STDIN")
