@@ -109,10 +109,12 @@ class CsvShow:
         self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY<op>VALUE"),
                                  help="Lookup fields of first matching record. " + explain_FIELD_LIST +
                                       ". See -select for <op> explanation")
-        self.parser.add_argument("-pre_grep", metavar="REGEX",
-                                 help="Grep rows using space-separated data before any database modifications")
-        self.parser.add_argument("-grep", metavar="REGEX",
-                                 help="Grep rows after database modifications such as column reordering")
+        self.parser.add_argument("-pregrep", "-pregrepv", metavar="REGEX", action=AppendGrepArgs,
+                                 help="Grep rows using space-separated data before any database modifications. "
+                                      "To invert the match use -pregrepv")
+        self.parser.add_argument("-grep", "-grepv", metavar="REGEX", action=AppendGrepArgs,
+                                 help="Grep rows after database modifications such as column reordering. "
+                                 "To invert the match use -grepv")
         self.parser.add_argument("-match_case", default=False, action="store_true",
                                  help="Regular expressions match on case (Default is IGNORECASE)")
         self.parser.add_argument("-max_width", action=ParseMaxWidthSpec, metavar=("[MAX_WIDTH]", "COLUMN_NAME=WIDTH"),
@@ -122,8 +124,9 @@ class CsvShow:
         self.parser.add_argument("-nocolumns", action=ParseCommaSeparatedArgs,
                                  help="Omit these columns. " + explain_FIELD_LIST, metavar="FIELD_LIST")
         self.parser.add_argument("-csv", default=False, action="store_true", help="Format output as CSV")
-        self.parser.add_argument("-less", default=False, action="store_true", help="Pipe to less")
-        self.parser.add_argument("-noless", default=False, action="store_true", help="Disable pipe to less")
+        self.parser.add_argument("-less", "-noless", default=None, action=StoreTrueUnlessNegated,
+                                 help="Pipe to less or disable pipe to less if negated. "
+                                      " Default: attempt pipe to less if output will not fit in the terminal.")
         self.parser.add_argument("-version", default=False, action=ParseVersionArg, help="Display version and exit")
 
     def user_add_args(self):
@@ -164,11 +167,8 @@ class CsvShow:
         if self.has_header:
             column_names = reader.__next__()
             self.db.set_column_names(column_names)
-        if self.parsed_args.pre_grep:
-            remaining_rows = []
-            for row in reader:
-                if re.search(self.parsed_args.pre_grep, " ".join(row), self.regex_flags):
-                    remaining_rows.append(row)
+        if self.parsed_args.pregrep:
+            remaining_rows = grep_rows(reader, self.parsed_args.pregrep, self.regex_flags)
         else:
             remaining_rows = [row for row in reader]
         self.db.add_rows(remaining_rows)
@@ -241,8 +241,8 @@ class CsvShow:
         fits_in_tty_window = ((len(self.db) + 2 <= self.tty_lines)
                               and (len(output) == 0 or (len(output[0]) <= self.tty_columns))
                               )
-        if (self.parsed_args.less or
-                (not self.parsed_args.noless and is_tty and has_less and not fits_in_tty_window)):
+        if (self.parsed_args.less is True) or \
+                ((self.parsed_args.less is None) and is_tty and has_less and not fits_in_tty_window):
             proc = subprocess.run("less -S", input="\n".join(output), text=True, shell=True)
         else:
             self.print_all_lines(output)
@@ -376,6 +376,36 @@ class ParseMaxWidthSpec(ParseActionBase):
                     "Please choose values that are larger than 1. "
                     "To eliminate a column use -columns/-nocolumns "
                 ))
+
+
+class AppendGrepArgs(ParseActionBase):
+    def __init__(self, option_strings, dest, nargs=1, **kwargs):
+        super().__init__(option_strings, dest, nargs, **kwargs)
+
+    def __call__(self, parser, namespace, new_values, option_string=None):
+        fields = getattr(namespace, self.dest)
+        positive_match = True
+        if "grepv" in option_string:
+            positive_match = False
+        if fields is None:
+            fields = []
+        for new_value in new_values:
+            fields.append((new_value, positive_match))
+        setattr(namespace, self.dest, fields)
+
+
+class StoreTrueUnlessNegated(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=0, **kwargs):
+        super().__init__(option_strings, dest, nargs, **kwargs)
+
+    def __call__(self, parser, namespace, new_values, option_string=None):
+        value_to_set = True
+        if option_string[0:2] == "--":  # strip -- to just - so they are handled the same
+            option_string = option_string[1:]
+        if option_string[0:3] == "-no":
+            value_to_set = not value_to_set
+            option_string = option_string[3:]
+        setattr(namespace, self.dest, value_to_set)
 
 
 class ParseVersionArg(argparse.Action):

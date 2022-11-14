@@ -137,13 +137,13 @@ class ShowCSVTests(unittest.TestCase):
         self.assertTrue(exception_taken)
 
     def test_grep_arguments(self):
-        self.ui.parse_args("some.csv -pre_grep Ford -grep 2.*".split())
-        self.assertIn("pre_grep", self.ui.parsed_args)
+        self.ui.parse_args("some.csv -pregrep Ford -grep 2.*".split())
+        self.assertIn("pregrep", self.ui.parsed_args)
         self.assertIn("grep", self.ui.parsed_args)
 
-    def test_pre_grep(self):
+    def test_pregrep(self):
         def block():
-            self.ui.show((self.dir + "/data/cars.csv -pre_grep ford.*2.*").split())
+            self.ui.show((self.dir + "/data/cars.csv -pregrep ford.*2.*").split())
 
         lines = self.capture_block_output(block)
         self.assertEqual(
@@ -273,7 +273,20 @@ class ShowCSVTests(unittest.TestCase):
         output = self.capture_block_output(block)
         #print("\n".join(output))
 
+    def test_less_argument(self):
+        self.ui.parse_args("some.csv".split())
+        self.assertEqual(self.ui.parsed_args.less, None)
+        self.ui.parse_args("some.csv -less".split())
+        self.assertEqual(self.ui.parsed_args.less, True)
+        self.ui.parse_args("some.csv -noless".split())
+        self.assertEqual(self.ui.parsed_args.less, False)
+
     def test_can_parse_other_db_types(self):
+        self.ui.parse_args("some.csv".split())
+        self.assertEqual(self.ui.parsed_args.sep, ",")
+        self.ui.parse_args("some.csv -sep MYSEP".split())
+        self.assertEqual(self.ui.parsed_args.sep, "MYSEP")
+
         self.ui.parse_args((self.dir + "/data/cars.tsv -sep \\t").split())
         self.ui.read_db(self.ui.parsed_args.csv_file)
         self.ui.parse_args([self.dir + "/data/cars.txt", "-sep", " "])

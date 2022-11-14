@@ -167,13 +167,13 @@ class CSVShowDB:
             raise CSVShowError(f"Column name not found: {name}")
         return self.column_number_by_name[name]
 
-    def grep(self, regex, regex_flags=None):
+    #  regex input can be a string,  a tuple of the form (regex, positive_match_boolean), or a list of those tuples
+    #  use False in the positive_match_boolean part of the tuple to invert the match similar to grep -v
+    def grep(self, regex_list, regex_flags=None):
         if regex_flags is None:
             regex_flags = self.regex_flags
-        new_rows = []
-        for row in self.rows:
-            if re.search(regex, " ".join(row), regex_flags):
-                new_rows.append(row)
+
+        new_rows = grep_rows(self.rows, regex_list, regex_flags)
         new_db = CSVShowDB(new_rows, self.column_names)
         return new_db
 

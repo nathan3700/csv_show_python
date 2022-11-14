@@ -172,6 +172,13 @@ class ShowCSVDBTests(unittest.TestCase):
              ["Katy", "50", "5 feet"]], self.db.column_names)
         self.assertEqual(expected, result_db)
 
+        # Can support list of tuples of the form [ (regex, positive_match_bool), ...]
+        result_db = self.db.grep([("Tom", False), (r"50.*5 feet", True)], re.IGNORECASE)
+        expected = CSVShowDB(
+            [["Katy", "50", "5 feet"]], self.db.column_names)
+        self.assertEqual(expected, result_db)
+
+
     def test_update_data(self):
         self.db.set_column_names(["ItemA", "ItemB", "ItemC"])
         self.db.add_rows([["AA0", "", "CC0"], ["AA1", "", "CC1"]])

@@ -69,3 +69,33 @@ class RowComparable:
             if not lhs == rhs:
                 return False
         return True
+
+
+#  regex input can be a string,  a tuple of the form (regex, positive_match_boolean), or a list of those tuples
+#  use False in the positive_match_boolean part of the tuple to invert the match similar to grep -v
+def grep_rows(rows, regex_list, regex_flags):
+    regex_list = ensure_regex_list(regex_list)
+    new_rows = []
+    for row in rows:
+        concatenated_row = " ".join(row)
+        if grep_single_line(concatenated_row, regex_list, regex_flags):
+            new_rows.append(row)
+    return new_rows
+
+
+def grep_single_line(single_line, regex_positive_match_tuples, regex_flags):
+    matches_all_regex = True
+    for single_regex, positive_match in regex_positive_match_tuples:
+        match = re.search(single_regex, single_line, regex_flags)
+        if not ((positive_match and match is not None) or (not positive_match and match is None)):
+            matches_all_regex = False
+    return matches_all_regex
+
+
+def ensure_regex_list(regex_list):  # If regex is not a list, make it one (so we handle both)
+    if not isinstance(regex_list, list):
+        if isinstance(regex_list, tuple):
+            regex_list = [regex_list]
+        else:
+            regex_list = [(regex_list, True)]
+    return regex_list
