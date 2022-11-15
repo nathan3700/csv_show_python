@@ -22,6 +22,11 @@ class ShowCSVSharedFunctionsTests(unittest.TestCase):
         self.assertEqual(string_to_number("264'hbead_bead"), 0xbeadbead)
         self.assertEqual(string_to_number("'hbead "), 0xbead)  # Allow space
 
+    def test_string_is_number_place_separators(self):
+        self.assertEqual(string_to_number("0xbead_bead"), 0xbeadbead)
+        self.assertEqual(string_to_number("  10  "), 10)
+        self.assertEqual(string_to_number("  44,60__0  "), 44600)
+
     def test_row_comparable(self):
         row1 = RowComparable(["Car", "3", "Red"], [1], detect_numbers=False)
         row2 = RowComparable(["Truck", "20", "White"], [1], detect_numbers=False)

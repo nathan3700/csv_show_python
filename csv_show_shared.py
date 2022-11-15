@@ -12,6 +12,7 @@ hex_regex = re.compile("^(\d*'[Hh]|0X|0x)")
 def string_to_number(str_in):
     value = None
     radix = -1
+    str_in = re.sub("[,_ ]", "", str_in)  # Strip various well-known place separators from numbers
     if re.match(hex_regex, str_in):
         str_in = re.sub(hex_regex, "", str_in)
         radix = 16

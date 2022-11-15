@@ -256,7 +256,7 @@ class CsvShow:
                 if line_num != last_index:
                     print(line, )
                 else:
-                    print(line, end="")
+                    print(line)
         except BrokenPipeError as e:
             pass  # Okay: The user piped to another program which didn't consume all the output
 

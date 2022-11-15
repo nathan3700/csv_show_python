@@ -178,7 +178,6 @@ class ShowCSVDBTests(unittest.TestCase):
             [["Katy", "50", "5 feet"]], self.db.column_names)
         self.assertEqual(expected, result_db)
 
-
     def test_update_data(self):
         self.db.set_column_names(["ItemA", "ItemB", "ItemC"])
         self.db.add_rows([["AA0", "", "CC0"], ["AA1", "", "CC1"]])
