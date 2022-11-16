@@ -89,6 +89,8 @@ class CSVShowDB:
     def insert_column(self, new_column_name, position):
         self.column_names.insert(position, None)  # Just open a gap, then set below
         self.set_column_name(position, new_column_name)
+        for i in range(position, len(self.column_names)):  # Cause column_number_by_name to be updated too
+            self.set_column_name(i, self.column_names[i])
         for row in self.rows:
             row.insert(position, "")
 

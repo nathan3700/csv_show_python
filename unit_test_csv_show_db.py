@@ -68,6 +68,9 @@ class ShowCSVDBTests(unittest.TestCase):
         self.db.insert_column("ItemB", 1)
         self.assertEqual(["ItemA", "ItemB", "ItemC"], self.db.column_names)
         self.assertEqual([["AA0", "", "CC0"], ["AA1", "", "CC1"]], self.db.rows)
+        self.assertIn("ItemB", self.db.column_number_by_name)
+        self.assertEqual(self.db.column_number_by_name["ItemB"], 1)
+        self.assertEqual(self.db.column_number_by_name["ItemC"], 2)
 
     def test_insert_new_row(self):
         self.db.set_column_names(["ItemA", "ItemB"])
