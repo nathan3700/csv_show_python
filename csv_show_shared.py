@@ -5,18 +5,21 @@ class CSVShowError(Exception):
     pass
 
 
-# Returns None is a number is not recognized
-hex_regex = re.compile("^(\d*'[Hh]|0X|0x)")
+hex_regex = re.compile(r"^(\d*'[sS]?[Hh]|0X|0x)[A-Fa-f0-9_]+")
+hex_regex_prefix = re.compile(r"^(\d*'[sS]?[Hh]|0X|0x)")
+decimal_regex = re.compile(r"[0-9,_]+")
 
 
-def string_to_number(str_in):
+# Returns None if a number is not recognized
+def string_to_number(str_in: str):
     value = None
     radix = -1
-    str_in = re.sub("[,_ ]", "", str_in)  # Strip various well-known place separators from numbers
-    if re.match(hex_regex, str_in):
-        str_in = re.sub(hex_regex, "", str_in)
+    str_in = str_in.strip()
+    if re.fullmatch(hex_regex, str_in):
+        str_in = re.sub(hex_regex_prefix, "", str_in)
         radix = 16
-    if re.fullmatch("[0-9]+", str_in):
+    elif re.fullmatch(decimal_regex, str_in):
+        str_in = re.sub(r"[,_]", "", str_in)  # Strip various well-known place separators
         radix = 10
     if radix > 0:
         try:

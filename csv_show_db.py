@@ -45,6 +45,16 @@ class CSVShowDB:
         else:
             return self.rows[row_num]
 
+    def get_row_field(self, row, field_name: str):
+        col = self.get_col_number(field_name)
+        return row[col]
+
+    def set_row_field(self, row, field_name: str, value: str):
+        col = self.get_col_number(field_name)
+        while len(row) < col + 1:
+            row.append("")
+        row[col] = value
+
     def row_to_record(self, row):
         return {key: val for key, val in zip(self.column_names, row)}
 
@@ -162,7 +172,7 @@ class CSVShowDB:
             row_num += 1
         return results_rows, results_row_numbers
 
-    def get_col_number(self, name):
+    def get_col_number(self, name: str):
         if name not in self.column_names:
             raise CSVShowError(f"Column name not found: {name}")
         return self.column_number_by_name[name]

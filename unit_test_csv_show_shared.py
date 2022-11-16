@@ -13,12 +13,14 @@ class ShowCSVSharedFunctionsTests(unittest.TestCase):
         self.assertEqual(string_to_number("'hbead is great"), None)
 
     def test_string_is_number_hex(self):
+        self.assertEqual(string_to_number("0xabcdef0192345689"), 0xabcdef0192345689)
+        self.assertEqual(string_to_number("0xabcdefg0192345689"), None)  # "Has non-hex char
         self.assertEqual(string_to_number("0xbead"), 0xbead)
         self.assertEqual(string_to_number("0Xbead"), 0xbead)
         self.assertEqual(string_to_number("'hbead"), 0xbead)
         self.assertEqual(string_to_number("15'hbead"), 0xbead)
-        self.assertEqual(string_to_number("15'Hbead"), 0xbead)
-        self.assertEqual(string_to_number("'hbead"), 0xbead)
+        self.assertEqual(string_to_number("15'SHbead"), 0xbead)
+        self.assertEqual(string_to_number("'shbead"), 0xbead)
         self.assertEqual(string_to_number("264'hbead_bead"), 0xbeadbead)
         self.assertEqual(string_to_number("'hbead "), 0xbead)  # Allow space
 
