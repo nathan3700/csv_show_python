@@ -1,5 +1,5 @@
 import re
-
+import typing
 
 class CSVShowError(Exception):
     pass
@@ -10,9 +10,9 @@ hex_regex_prefix = re.compile(r"^(\d*'[sS]?[Hh]|0X|0x)")
 decimal_regex = re.compile(r"[0-9,_]+")
 
 
-# Returns None if a number is not recognized
-def string_to_number(str_in: str):
-    value = None
+# Return "default" if the number cannot be converted
+def string_to_number(str_in: str, default: typing.Any = 0):
+    value = default
     radix = -1
     str_in = str_in.strip()
     if re.fullmatch(hex_regex, str_in):
@@ -25,12 +25,12 @@ def string_to_number(str_in: str):
         try:
             value = int(str_in, radix)
         except ValueError:
-            None
+            pass
     return value
 
 
 def string_is_number(str_in):
-    return string_to_number(str_in) is not None
+    return string_to_number(str_in, None) is not None
 
 
 def get_regex(string_input):
@@ -51,8 +51,8 @@ class RowComparable:
             lhs = self.row[key]
             rhs = other.row[key]
             if self.detect_numbers:
-                left_num = string_to_number(lhs)
-                right_num = string_to_number(rhs)
+                left_num = string_to_number(lhs, None)
+                right_num = string_to_number(rhs, None)
                 if left_num is not None and right_num is not None:
                     lhs = left_num
                     rhs = right_num
@@ -65,8 +65,8 @@ class RowComparable:
             lhs = self.row[key]
             rhs = other.row[key]
             if self.detect_numbers:
-                left_num = string_to_number(lhs)
-                right_num = string_to_number(rhs)
+                left_num = string_to_number(lhs, None)
+                right_num = string_to_number(rhs, None)
                 if left_num is not None and right_num is not None:
                     lhs = left_num
                     rhs = right_num

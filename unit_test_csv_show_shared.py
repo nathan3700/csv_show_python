@@ -8,13 +8,13 @@ class ShowCSVSharedFunctionsTests(unittest.TestCase):
         self.assertFalse(string_is_number("Hello 10"))
         self.assertEqual(string_to_number("10"), 10)
         self.assertEqual(string_to_number("1234567890"), 1234567890)
-        self.assertEqual(string_to_number("Hello 10"), None)
-        self.assertEqual(string_to_number("bead"), None)
-        self.assertEqual(string_to_number("'hbead is great"), None)
+        self.assertEqual(string_to_number("Hello 10", None), None)
+        self.assertEqual(string_to_number("bead", None), None)
+        self.assertEqual(string_to_number("'hbead is great", None), None)
 
     def test_string_is_number_hex(self):
         self.assertEqual(string_to_number("0xabcdef0192345689"), 0xabcdef0192345689)
-        self.assertEqual(string_to_number("0xabcdefg0192345689"), None)  # "Has non-hex char
+        self.assertEqual(string_to_number("0xabcdefg0192345689", None), None)  # "Has non-hex char
         self.assertEqual(string_to_number("0xbead"), 0xbead)
         self.assertEqual(string_to_number("0Xbead"), 0xbead)
         self.assertEqual(string_to_number("'hbead"), 0xbead)
