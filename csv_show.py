@@ -109,9 +109,9 @@ class CsvShow:
         self.parser.add_argument("-lookup", action=ParseLookupSpec, metavar=("FIELD_LIST", "KEY<op>VALUE"),
                                  help="Lookup fields of first matching record. " + explain_FIELD_LIST +
                                       ". See -select for <op> explanation")
-        self.parser.add_argument("-pregrep", "-pregrepv", metavar="REGEX", action=AppendGrepArgs,
+        self.parser.add_argument("-pregrep", "-pregrepv", "-pregrep!", "-pregrepv!", metavar="REGEX", action=AppendGrepArgs,
                                  help="Grep rows using space-separated data before any database modifications. "
-                                      "To invert the match use -pregrepv")
+                                      "To invert the match use -pregrepv.  Use -pregrep! to include header in matching.")
         self.parser.add_argument("-grep", "-grepv", metavar="REGEX", action=AppendGrepArgs,
                                  help="Grep rows after database modifications such as column reordering. "
                                  "To invert the match use -grepv")
@@ -164,14 +164,21 @@ class CsvShow:
         else:
             file_handle = open(file)
         reader = csv.reader(file_handle, dialect=self.dialect)
-        if self.has_header:
-            column_names = reader.__next__()
-            self.db.set_column_names(column_names)
-        if self.parsed_args.pregrep:
-            remaining_rows = grep_rows(reader, self.parsed_args.pregrep, self.regex_flags)
+
+        if hasattr(self.parsed_args, "pregrep!"):
+            parsed_rows = grep_rows(reader, getattr(self.parsed_args, "pregrep!"), self.regex_flags)
         else:
-            remaining_rows = [row for row in reader]
-        self.db.add_rows(remaining_rows)
+            parsed_rows = [row for row in reader]
+        if self.has_header:
+            if len(parsed_rows) > 0:
+                self.db.set_column_names(parsed_rows[0])
+                parsed_rows.pop(0)
+            else:
+                self.has_header = False
+
+        if self.parsed_args.pregrep:
+            parsed_rows = grep_rows(parsed_rows, self.parsed_args.pregrep, self.regex_flags)
+        self.db.add_rows(parsed_rows)
         file_handle.close()
 
     def match_column_args_to_column_names(self):
@@ -383,7 +390,12 @@ class AppendGrepArgs(ParseActionBase):
         super().__init__(option_strings, dest, nargs, **kwargs)
 
     def __call__(self, parser, namespace, new_values, option_string=None):
+        if "!" in option_string:  # Allow the user to use ! with the argument and let it create a new destination
+            self.dest += "!"
+            if not hasattr(namespace, self.dest):
+                setattr(namespace, self.dest, None)
         fields = getattr(namespace, self.dest)
+
         positive_match = True
         if "grepv" in option_string:
             positive_match = False

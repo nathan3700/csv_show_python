@@ -51,6 +51,24 @@ class ShowCSVTests(unittest.TestCase):
         ]
         self.assertEqual(expected_output, lines)
 
+    def test_can_run_with_empty_file(self):
+        sav_stdin = sys.stdin
+        class FakeEmptyStdIn:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                    raise StopIteration
+
+            def close(self):
+                pass
+        sys.stdin = FakeEmptyStdIn()
+
+        def block():
+            self.ui.show("- -csv".split())
+        lines = self.capture_block_output(block)
+        self.assertEqual(lines, [""])
+        sys.stdin = sav_stdin
+
     def test_sort_arguments(self):
         self.ui.parse_args(["some.csv"])
         self.assertIn("sort", self.ui.parsed_args)
@@ -152,6 +170,18 @@ class ShowCSVTests(unittest.TestCase):
                 "|----|----------|----|",
                 "|Ford|Expedition|2016|",
                 "|Ford|Explorer  |2003|"
+            ], lines
+        )
+
+        def block():
+            self.ui.show((self.dir + "/data/cars.csv -pregrep! Ford -csv").split())
+
+        lines = self.capture_block_output(block)
+        self.assertEqual(
+            [
+                "Ford,Expedition,2016",
+                "Ford,Explorer,2003",
+                "Ford,Windstar,1996"
             ], lines
         )
 
