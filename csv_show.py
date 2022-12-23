@@ -9,6 +9,7 @@ import csv
 import sys
 import os
 import subprocess
+import gzip
 
 
 if not csv_show_version.version_check():
@@ -161,8 +162,11 @@ class CsvShow:
         self.db.clear()
         if file == "-":
             file_handle = sys.stdin
+        elif re.match(".*\.gz$",file):
+            file_handle = gzip.open(file, mode="rt")
         else:
             file_handle = open(file)
+
         reader = csv.reader(file_handle, dialect=self.dialect)
 
         if hasattr(self.parsed_args, "pregrep!"):
