@@ -1,6 +1,6 @@
 import sys
 
-version = 1.0
+version = 1.2
 min_python_version = {"major": 3, "minor": 6, "micro": 0}
 current_python_version = {"major": sys.version_info.major, "minor": sys.version_info.minor,
                           "micro": sys.version_info.micro}
